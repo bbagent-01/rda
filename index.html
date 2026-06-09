@@ -15,7 +15,7 @@
 
     .layer { position: absolute; inset: 0; display: none; }
     body.v1 .layer-v1 { display: flex; align-items: center; justify-content: center; }
-    body.v2 .layer-v2, body.v3 .layer-v2 { display: block; }
+    body.v2 .layer-v2, body.v3 .layer-v2, body.v4 .layer-v2 { display: block; }
 
     /* VARIANT 1 — feathered focal video */
     #video-wrap {
@@ -57,7 +57,7 @@
   }}
   </script>
 </head>
-<body class="v2">
+<body class="v4">
 
   <div id="scrub-runway">
     <div id="stage">
@@ -87,8 +87,9 @@
 
   <div id="variant-menu">
     <button data-variant="1">1 · Feathered</button>
-    <button data-variant="2" class="active">2 · Liquid Glass</button>
+    <button data-variant="2">2 · Liquid Glass</button>
     <button data-variant="3">3 · Clear Glass</button>
+    <button data-variant="4" class="active">4 · Flat Glass</button>
   </div>
 
   <div id="controls">
@@ -137,10 +138,15 @@
     let sizeLogo = 1.6;                 // logo size multiplier (default 160%)
     const SCRUB_EASE = 0.12, FOLLOW_EASE = 0.08;
 
-    let variant = 2;
+    let variant = 4;
     let duration = 0, targetTime = 0, curTime = 0, ready = false;
     let mx = 0, my = 0, cx = 0, cy = 0;     // px offsets (variant 1)
     let nx = 0, ny = 0;                       // normalized mouse -1..1 (variant 2)
+
+    // variant 4: autoplay + scroll speed-up
+    let phase4 = 0, scrollVel = 0, lastSY = 0, prevNow = 0;
+    const SCROLL_GAIN = 0.0009;               // how much scroll velocity speeds playback
+    const FOLLOW_EASE_SLOW = 0.018;           // long, always-drifting mouse follow (v4)
 
     const pingpong = x => { const m = x % 2; return m < 1 ? m : 2 - m; };
     const activeVideos = () => variant >= 2 ? [src] : [v1video];
@@ -237,20 +243,23 @@
         }
         const geoStd = makeGeo({ depth: 60, bevelEnabled: true, bevelThickness: 10, bevelSize: 8,  bevelSegments: 5,  curveSegments: 28 });
         const geoSmooth = makeGeo({ depth: 34, bevelEnabled: true, bevelThickness: 14, bevelSize: 15, bevelSegments: 18, curveSegments: 80 });
+        // variant 4: flatter, sharper-but-rounded edges, very high tessellation (no refraction steps)
+        const geoFlat = makeGeo({ depth: 18, bevelEnabled: true, bevelThickness: 5, bevelSize: 9, bevelSegments: 24, curveSegments: 220 });
         geoStd.computeBoundingBox();
         const logoNativeW = geoStd.boundingBox.max.x - geoStd.boundingBox.min.x;   // ~720
 
         const meshLit   = new THREE.Mesh(geoStd, matLit);
         const meshClear = new THREE.Mesh(geoSmooth, matClear);
-        meshClear.visible = false;
+        const meshFlat  = new THREE.Mesh(geoFlat, matClear);
+        meshClear.visible = false; meshFlat.visible = false;
 
         const logo = new THREE.Group();   // tilt
-        logo.add(meshLit); logo.add(meshClear);
+        logo.add(meshLit); logo.add(meshClear); logo.add(meshFlat);
         const grp = new THREE.Group();     // drift
         grp.add(logo);
         scene.add(grp);
 
-        gl = { ready:true, renderer, scene, camera, plane, planeMat, logo, grp, meshLit, meshClear, logoNativeW, vtex };
+        gl = { ready:true, renderer, scene, camera, plane, planeMat, logo, grp, meshLit, meshClear, meshFlat, logoNativeW, vtex };
         layoutGL();
         window.addEventListener('resize', layoutGL);
       } catch (e) {
@@ -285,13 +294,24 @@
       const s = logoW / gl.logoNativeW;
       gl.meshLit.scale.set(s, -s, s);    // flip SVG y
       gl.meshClear.scale.set(s, -s, s);
+      gl.meshFlat.scale.set(s, -s, s);
     }
 
     // ---------- main loop ----------
-    function tick(){
+    function tick(now){
+      const dt = prevNow ? Math.min((now - prevNow)/1000, 0.05) : 0; prevNow = now;
       if (ready){
-        curTime += (targetTime - curTime) * SCRUB_EASE;
-        if (Math.abs(targetTime - curTime) < 0.001) curTime = targetTime;
+        if (variant === 4){
+          // autoplay: advance continuously; scrolling speeds it up
+          scrollVel *= 0.90;
+          const rate = (1/duration) + scrollVel * SCROLL_GAIN;   // 1/duration = real-time speed
+          phase4 += rate * dt;
+          targetTime = pingpong(phase4) * duration;
+          curTime = targetTime;                                  // direct = smooth playback
+        } else {
+          curTime += (targetTime - curTime) * SCRUB_EASE;
+          if (Math.abs(targetTime - curTime) < 0.001) curTime = targetTime;
+        }
         const t = Math.min(Math.max(curTime, 0), Math.max(duration - 0.04, 0));
         for (const v of activeVideos()) if (Math.abs(v.currentTime - t) > 0.001) v.currentTime = t;
       }
@@ -313,22 +333,30 @@
           gl.grp.position.y += (dy - gl.grp.position.y) * 0.07;
           tcx = 0.5 + nx * 0.03 * followNorm; tcy = 0.5 - ny * 0.03 * followNorm;
         } else {
-          // variant 3: logo locked perfectly center; background follows the mouse
+          // variant 3 & 4: logo locked perfectly center; background follows the mouse
           gl.logo.rotation.x += (0 - gl.logo.rotation.x) * 0.1;
           gl.logo.rotation.y += (0 - gl.logo.rotation.y) * 0.1;
           gl.grp.position.x += (0 - gl.grp.position.x) * 0.1;
           gl.grp.position.y += (0 - gl.grp.position.y) * 0.1;
           tcx = 0.5 + nx * 0.08 * followNorm; tcy = 0.5 - ny * 0.08 * followNorm;
         }
-        u.uCenter.value.x += (tcx - u.uCenter.value.x) * 0.07;
-        u.uCenter.value.y += (tcy - u.uCenter.value.y) * 0.07;
+        // v4 uses a long, lazy easing so it's always drifting toward the cursor
+        const fe = variant === 4 ? FOLLOW_EASE_SLOW : 0.07;
+        u.uCenter.value.x += (tcx - u.uCenter.value.x) * fe;
+        u.uCenter.value.y += (tcy - u.uCenter.value.y) * fe;
         gl.renderer.render(gl.scene, gl.camera);
       }
       requestAnimationFrame(tick);
     }
 
     // ---------- events ----------
-    function onScroll(){ computeTarget(); hint.style.opacity = window.scrollY > 40 ? '0' : '1'; }
+    function onScroll(){
+      const sy = window.scrollY;
+      scrollVel = Math.min(scrollVel + Math.abs(sy - lastSY), 4000);   // feeds v4 speed-up
+      lastSY = sy;
+      computeTarget();
+      hint.style.opacity = sy > 40 ? '0' : '1';
+    }
     function onMouse(e){
       mx = (e.clientX - innerWidth/2) * FOLLOW;
       my = (e.clientY - innerHeight/2) * FOLLOW;
@@ -350,12 +378,15 @@
         document.body.classList.toggle('v1', variant === 1);
         document.body.classList.toggle('v2', variant === 2);
         document.body.classList.toggle('v3', variant === 3);
+        document.body.classList.toggle('v4', variant === 4);
         document.querySelectorAll('#variant-menu button').forEach(b => b.classList.toggle('active', b === btn));
         if (gl.ready){
           gl.meshLit.visible   = variant === 2;
           gl.meshClear.visible = variant === 3;
+          gl.meshFlat.visible  = variant === 4;
           if (variant >= 2) layoutGL();
         }
+        if (variant === 4 && duration) phase4 = curTime / duration;   // continue autoplay from current frame
         const t = Math.min(Math.max(curTime, 0), Math.max(duration - 0.04, 0));
         activeVideos().forEach(v => v.currentTime = t);
       });
@@ -376,9 +407,9 @@
     window.addEventListener('mousemove', onMouse, { passive:true });
 
     initGL();
-    // optional deep-link: #v1 / #v2 / #v3
-    const hv = (location.hash.match(/^#v([123])$/) || [])[1];
-    if (hv) { const b = document.querySelector(`#variant-menu button[data-variant="${hv}"]`); if (b) b.click(); }
+    // initial variant: deep-link #v1..#v4, else default to 4
+    const hv = (location.hash.match(/^#v([1-4])$/) || [])[1] || '4';
+    const ib = document.querySelector(`#variant-menu button[data-variant="${hv}"]`); if (ib) ib.click();
     requestAnimationFrame(tick);
   </script>
 </body>
