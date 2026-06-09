@@ -10,42 +10,50 @@
     html { scroll-behavior: auto; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #05070a;
+      background: #000;
       color: #fff;
     }
 
     /* Tall scroll runway — its height defines how much scroll drives the video */
     #scrub-runway {
       position: relative;
-      height: 600vh;            /* more height = slower, finer scrubbing */
+      height: 600vh;
     }
 
-    /* Sticky stage keeps the video pinned full-screen while you scroll the runway */
+    /* Sticky stage keeps the focal point pinned full-screen while you scroll */
     #stage {
       position: sticky;
       top: 0;
       height: 100vh;
       width: 100%;
       overflow: hidden;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
+    /* The video box: ~half screen width, locked to the clip's aspect ratio.
+       The radial mask feathers it to transparent (black bg shows through)
+       well before the real rectangular edge, so edges are never visible. */
+    #video-wrap {
+      position: relative;
+      width: clamp(320px, 48vw, 900px);
+      aspect-ratio: 832 / 464;
+      will-change: transform;
+      /* aspect-matched elliptical feather: solid center -> transparent before edge */
+      -webkit-mask-image: radial-gradient(ellipse closest-side at center,
+                          #000 0%, #000 38%, rgba(0,0,0,0) 82%);
+              mask-image: radial-gradient(ellipse closest-side at center,
+                          #000 0%, #000 38%, rgba(0,0,0,0) 82%);
+      -webkit-mask-repeat: no-repeat;
+              mask-repeat: no-repeat;
+    }
     #hero-video {
-      position: absolute;
-      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
-      /* slight darken so overlay text stays readable */
-      filter: brightness(0.85);
-    }
-
-    /* darkening gradient for legibility */
-    #stage::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%);
-      pointer-events: none;
+      display: block;
     }
 
     .overlay {
@@ -58,19 +66,14 @@
       text-align: center;
       padding: 24px;
       z-index: 2;
+      pointer-events: none;
     }
     .overlay h1 {
-      font-size: clamp(40px, 8vw, 96px);
+      font-size: clamp(34px, 6vw, 76px);
       font-weight: 700;
       letter-spacing: -0.02em;
       line-height: 1;
-      text-shadow: 0 2px 40px rgba(0,0,0,0.4);
-    }
-    .overlay p {
-      margin-top: 18px;
-      font-size: clamp(15px, 2vw, 20px);
-      color: rgba(255,255,255,0.75);
-      max-width: 520px;
+      text-shadow: 0 2px 50px rgba(0,0,0,0.8);
     }
 
     .scroll-hint {
@@ -81,36 +84,98 @@
       font-size: 12px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.6);
+      color: rgba(255,255,255,0.55);
       z-index: 3;
       animation: bob 2s ease-in-out infinite;
       transition: opacity 0.4s;
     }
     @keyframes bob { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
 
-    /* a content block after the hero so the page reads as "more below" */
     #after {
       position: relative;
       z-index: 1;
-      background: #05070a;
+      background: #000;
       padding: 120px 24px;
       text-align: center;
-      color: rgba(255,255,255,0.6);
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* ---- Sandbox control panel ---- */
+    #controls {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 10;
+      width: 232px;
+      padding: 16px 16px 14px;
+      background: rgba(16,18,22,0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.85);
+      user-select: none;
+    }
+    #controls .title {
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 12px;
+    }
+    #controls .ctrl { margin-bottom: 14px; }
+    #controls .ctrl:last-child { margin-bottom: 0; }
+    #controls .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    #controls .val {
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+      font-weight: 600;
+    }
+    #controls input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.18);
+      outline: none;
+      cursor: pointer;
+    }
+    #controls input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      background: #fff;
+      border: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    #controls input[type=range]::-moz-range-thumb {
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      background: #fff;
+      border: 0;
     }
   </style>
 </head>
 <body>
   <div id="scrub-runway">
     <div id="stage">
-      <video id="hero-video"
-             src="media/hero.mp4"
-             muted
-             playsinline
-             preload="auto"
-             webkit-playsinline></video>
+      <div id="video-wrap">
+        <video id="hero-video"
+               src="media/hero.mp4"
+               muted
+               playsinline
+               preload="auto"
+               webkit-playsinline></video>
+      </div>
       <div class="overlay">
         <h1>RDA Digital</h1>
-        <p>Scroll to drive the hero. Reaches the end, reverses, ping-pongs — infinitely.</p>
       </div>
     </div>
   </div>
@@ -118,58 +183,74 @@
   <div class="scroll-hint" id="hint">Scroll ↓</div>
 
   <section id="after">
-    <p>— sandbox: scroll back up and the video rewinds —</p>
+    <p>— scroll back up and the video rewinds —</p>
   </section>
 
+  <div id="controls">
+    <div class="title">Hero Sandbox</div>
+    <div class="ctrl">
+      <div class="row"><span>Mouse follow</span><span class="val" id="mfVal">25%</span></div>
+      <input id="mfSlider" type="range" min="0" max="100" value="25" />
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>Scroll sensitivity</span><span class="val" id="ssVal">4</span></div>
+      <input id="ssSlider" type="range" min="1" max="12" step="1" value="4" />
+    </div>
+  </div>
+
   <script>
-    const video   = document.getElementById('hero-video');
-    const runway  = document.getElementById('scrub-runway');
-    const hint    = document.getElementById('hint');
+    const video  = document.getElementById('hero-video');
+    const wrap   = document.getElementById('video-wrap');
+    const runway = document.getElementById('scrub-runway');
+    const hint   = document.getElementById('hint');
 
-    // How many forward+reverse half-passes happen over the full runway scroll.
-    // 4 = forward, reverse, forward, reverse  (i.e. 2 full ping-pongs)
-    const HALF_PASSES = 4;
-    // Easing toward the scroll target — lower = smoother/laggier, higher = snappier
-    const EASE = 0.12;
+    // ---- tunables (driven by sliders) ----
+    let HALF_PASSES = 4;     // forward/reverse passes over full runway scroll
+    let FOLLOW = 0.25 * 0.35; // mouse-follow strength (slider% * max factor)
+    const MAX_FOLLOW = 0.35; // slider at 100% => move 35% of the way to the cursor
+    const SCRUB_EASE  = 0.12;
+    const FOLLOW_EASE = 0.08;
 
-    let duration = 0;
-    let targetTime = 0;
-    let currentTime = 0;
-    let ready = false;
+    // ---- scroll scrubbing state ----
+    let duration = 0, targetTime = 0, currentTime = 0, ready = false;
+    // ---- mouse follow state ----
+    let mx = 0, my = 0;        // target offset (px) from center
+    let cx = 0, cy = 0;        // current eased offset
 
-    // Triangle / ping-pong wave: 0→1→0→1 ...
-    function pingpong(x) {
-      const m = x % 2;
-      return m < 1 ? m : 2 - m;
-    }
+    function pingpong(x) { const m = x % 2; return m < 1 ? m : 2 - m; }
 
     function computeTarget() {
       const scrollable = runway.offsetHeight - window.innerHeight;
       const progress = scrollable > 0
-        ? Math.min(Math.max(window.scrollY / scrollable, 0), 1)
-        : 0;
-      const phase = progress * HALF_PASSES;          // 0 .. HALF_PASSES
-      targetTime = pingpong(phase) * duration;       // 0 .. duration, ping-ponging
+        ? Math.min(Math.max(window.scrollY / scrollable, 0), 1) : 0;
+      targetTime = pingpong(progress * HALF_PASSES) * duration;
     }
 
     function tick() {
+      // scrubbing
       if (ready) {
-        // ease currentTime toward the scroll-driven target
-        currentTime += (targetTime - currentTime) * EASE;
+        currentTime += (targetTime - currentTime) * SCRUB_EASE;
         if (Math.abs(targetTime - currentTime) < 0.001) currentTime = targetTime;
-        // clamp into valid range (avoid seeking exactly to duration)
         const t = Math.min(Math.max(currentTime, 0), Math.max(duration - 0.04, 0));
-        if (Math.abs(video.currentTime - t) > 0.001) {
-          video.currentTime = t;
-        }
+        if (Math.abs(video.currentTime - t) > 0.001) video.currentTime = t;
       }
+      // mouse follow (eased)
+      cx += (mx - cx) * FOLLOW_EASE;
+      cy += (my - cy) * FOLLOW_EASE;
+      wrap.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)`;
       requestAnimationFrame(tick);
     }
 
     function onScroll() {
       computeTarget();
-      if (window.scrollY > 40) hint.style.opacity = '0';
-      else hint.style.opacity = '1';
+      hint.style.opacity = window.scrollY > 40 ? '0' : '1';
+    }
+
+    function onMouse(e) {
+      const dx = e.clientX - window.innerWidth / 2;
+      const dy = e.clientY - window.innerHeight / 2;
+      mx = dx * FOLLOW;
+      my = dy * FOLLOW;
     }
 
     video.addEventListener('loadedmetadata', () => {
@@ -179,18 +260,34 @@
       ready = true;
     });
 
-    // Prime decode on iOS/Safari (programmatic seeking needs the pipeline warm)
+    // prime decode for iOS/Safari
     function prime() {
       const p = video.play();
       if (p && p.then) p.then(() => video.pause()).catch(() => {});
-      window.removeEventListener('touchstart', prime);
-      window.removeEventListener('click', prime);
     }
     window.addEventListener('touchstart', prime, { once: true, passive: true });
     window.addEventListener('click', prime, { once: true });
 
+    // ---- sliders ----
+    const mfSlider = document.getElementById('mfSlider');
+    const ssSlider = document.getElementById('ssSlider');
+    const mfVal = document.getElementById('mfVal');
+    const ssVal = document.getElementById('ssVal');
+
+    mfSlider.addEventListener('input', () => {
+      const pct = +mfSlider.value;
+      mfVal.textContent = pct + '%';
+      FOLLOW = (pct / 100) * MAX_FOLLOW;
+    });
+    ssSlider.addEventListener('input', () => {
+      HALF_PASSES = +ssSlider.value;
+      ssVal.textContent = ssSlider.value;
+      computeTarget();
+    });
+
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', computeTarget);
+    window.addEventListener('mousemove', onMouse, { passive: true });
 
     requestAnimationFrame(tick);
   </script>
