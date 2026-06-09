@@ -98,8 +98,8 @@
       <input id="szSlider" type="range" min="60" max="180" step="1" value="100" />
     </div>
     <div class="ctrl">
-      <div class="row"><span>Logo size</span><span class="val" id="lgVal">100%</span></div>
-      <input id="lgSlider" type="range" min="60" max="180" step="1" value="100" />
+      <div class="row"><span>Logo size</span><span class="val" id="lgVal">160%</span></div>
+      <input id="lgSlider" type="range" min="60" max="220" step="1" value="160" />
     </div>
     <div class="ctrl">
       <div class="row"><span>Mouse follow</span><span class="val" id="mfVal">25%</span></div>
@@ -134,7 +134,7 @@
     let FOLLOW = 0.25 * MAX_FOLLOW;     // px-translate factor (variant 1)
     let followNorm = 0.25;              // 0..1 (mouse-follow strength)
     let sizeBg = 1.0;                   // background size multiplier
-    let sizeLogo = 1.0;                 // logo size multiplier
+    let sizeLogo = 1.6;                 // logo size multiplier (default 160%)
     const SCRUB_EASE = 0.12, FOLLOW_EASE = 0.08;
 
     let variant = 2;
@@ -172,18 +172,33 @@
         const vtex = new THREE.VideoTexture(src);
         vtex.colorSpace = THREE.SRGBColorSpace;
 
-        // feathered focal video plane (matches variant 1 look)
+        // FULL-BLEED opaque background plane: feathered video focal centered on black.
+        // Opaque everywhere => the glass always has a backdrop (black outside the video),
+        // so it can never blow out to white where there's no footage behind it.
         const planeMat = new THREE.ShaderMaterial({
-          uniforms: { map: { value: vtex } },
+          uniforms: {
+            map:       { value: vtex },
+            uRes:      { value: new THREE.Vector2(1,1) },
+            uFocalW:   { value: 0.5 },                 // video width as fraction of viewport
+            uVidAspect:{ value: 832/464 },
+            uCenter:   { value: new THREE.Vector2(0.5, 0.5) }
+          },
           vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
           fragmentShader: `
-            uniform sampler2D map; varying vec2 vUv;
+            uniform sampler2D map; uniform vec2 uRes; uniform float uFocalW; uniform float uVidAspect; uniform vec2 uCenter;
+            varying vec2 vUv;
             void main(){
-              vec3 c = pow(texture2D(map, vUv).rgb, vec3(2.2));   // sRGB->linear
-              vec2 p = (vUv - 0.5) * 2.0;
-              float d = length(p);
-              float mask = 1.0 - smoothstep(0.74, 1.55, d);       // ellipse feather to black
-              gl_FragColor = vec4(c * mask, 1.0);
+              float aspect = uRes.x / uRes.y;
+              float halfW = uFocalW * 0.5;
+              float halfH = halfW * aspect / uVidAspect;   // preserve video aspect on screen
+              vec2 d = vUv - uCenter;
+              vec2 e2 = vec2(d.x/halfW, d.y/halfH);
+              float e = length(e2);
+              vec2 luv = e2 * 0.5 + 0.5;                    // 0..1 within the video box
+              float inBox = step(0.0, luv.x)*step(luv.x,1.0)*step(0.0, luv.y)*step(luv.y,1.0);
+              vec3 col = pow(texture2D(map, luv).rgb, vec3(2.2)) * inBox;   // sRGB->linear
+              float mask = 1.0 - smoothstep(0.38, 0.82, e);                 // same feather as variant 1
+              gl_FragColor = vec4(col * mask, 1.0);                         // opaque black outside
             }`
         });
         const plane = new THREE.Mesh(new THREE.PlaneGeometry(1,1), planeMat);
@@ -258,11 +273,14 @@
       gl.camera.aspect = W / H;
       gl.camera.updateProjectionMatrix();
 
-      const vis = visibleAt(0);
-      const boxW = vis.w * 0.5 * sizeBg;            // background scales independently
-      const boxH = boxW * (464/832);
-      gl.plane.scale.set(boxW, boxH, 1);
+      // full-bleed background plane (slightly oversized to avoid edge slivers)
+      const visP = visibleAt(gl.plane.position.z);
+      gl.plane.scale.set(visP.w * 1.04, visP.h * 1.04, 1);
+      const u = gl.planeMat.uniforms;
+      u.uRes.value.set(W, H);
+      u.uFocalW.value = 0.5 * sizeBg;               // background size = video focal width
 
+      const vis = visibleAt(0);
       const logoW = vis.w * 0.5 * 0.98 * sizeLogo;  // logo scales independently
       const s = logoW / gl.logoNativeW;
       gl.meshLit.scale.set(s, -s, s);    // flip SVG y
@@ -282,27 +300,28 @@
       wrapV1.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px) scale(${sizeBg.toFixed(3)})`;
 
       if (variant >= 2 && gl.ready){
-        const vis = visibleAt(0);
+        const u = gl.planeMat.uniforms;
+        let tcx, tcy;
         if (variant === 2){
-          // logo tilts + drifts toward mouse; plane parallax-drifts a touch
+          // logo tilts + drifts toward mouse; background parallax-drifts a touch
+          const vis = visibleAt(0);
           const tiltY = nx * 0.5 * followNorm, tiltX = ny * 0.35 * followNorm;
           gl.logo.rotation.y += (tiltY - gl.logo.rotation.y) * 0.07;
           gl.logo.rotation.x += (tiltX - gl.logo.rotation.x) * 0.07;
           const dx = nx * vis.w * 0.04 * followNorm, dy = -ny * vis.h * 0.04 * followNorm;
           gl.grp.position.x += (dx - gl.grp.position.x) * 0.07;
           gl.grp.position.y += (dy - gl.grp.position.y) * 0.07;
-          gl.plane.position.x += (dx*0.45 - gl.plane.position.x) * 0.07;
-          gl.plane.position.y += (dy*0.45 - gl.plane.position.y) * 0.07;
+          tcx = 0.5 + nx * 0.03 * followNorm; tcy = 0.5 - ny * 0.03 * followNorm;
         } else {
           // variant 3: logo locked perfectly center; background follows the mouse
           gl.logo.rotation.x += (0 - gl.logo.rotation.x) * 0.1;
           gl.logo.rotation.y += (0 - gl.logo.rotation.y) * 0.1;
           gl.grp.position.x += (0 - gl.grp.position.x) * 0.1;
           gl.grp.position.y += (0 - gl.grp.position.y) * 0.1;
-          const dx = nx * vis.w * 0.07 * followNorm, dy = -ny * vis.h * 0.07 * followNorm;
-          gl.plane.position.x += (dx - gl.plane.position.x) * 0.07;
-          gl.plane.position.y += (dy - gl.plane.position.y) * 0.07;
+          tcx = 0.5 + nx * 0.08 * followNorm; tcy = 0.5 - ny * 0.08 * followNorm;
         }
+        u.uCenter.value.x += (tcx - u.uCenter.value.x) * 0.07;
+        u.uCenter.value.y += (tcy - u.uCenter.value.y) * 0.07;
         gl.renderer.render(gl.scene, gl.camera);
       }
       requestAnimationFrame(tick);
