@@ -8,167 +8,56 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: auto; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #000;
-      color: #fff;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #000; color: #fff; }
 
     #scrub-runway { position: relative; height: 600vh; }
+    #stage { position: sticky; top: 0; height: 100vh; width: 100%; overflow: hidden; background: #000; }
 
-    #stage {
-      position: sticky; top: 0;
-      height: 100vh; width: 100%;
-      overflow: hidden; background: #000;
-    }
-
-    /* ============ shared video helpers ============ */
-    .vid { display: block; }
-
-    /* ============ VARIANT 1 — feathered focal video ============ */
-    .layer { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
-    body.v1 .layer-v1 { display: flex; }
+    .layer { position: absolute; inset: 0; display: none; }
+    body.v1 .layer-v1 { display: flex; align-items: center; justify-content: center; }
     body.v2 .layer-v2 { display: block; }
 
+    /* VARIANT 1 — feathered focal video */
     #video-wrap {
-      position: relative;
-      width: clamp(320px, 48vw, 900px);
-      aspect-ratio: 832 / 464;
-      will-change: transform;
+      position: relative; width: clamp(320px, 48vw, 900px); aspect-ratio: 832 / 464; will-change: transform;
       -webkit-mask-image: radial-gradient(ellipse closest-side at center,#000 0%,#000 38%,rgba(0,0,0,0) 82%);
               mask-image: radial-gradient(ellipse closest-side at center,#000 0%,#000 38%,rgba(0,0,0,0) 82%);
       -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     }
     #v1-video { width: 100%; height: 100%; object-fit: cover; }
+    .v1-title { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 2; }
+    .v1-title h1 { font-size: clamp(34px,6vw,76px); font-weight: 700; letter-spacing: -.02em; text-shadow: 0 2px 50px rgba(0,0,0,.8); }
 
-    .v1-title {
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      pointer-events: none; z-index: 2;
-    }
-    .v1-title h1 {
-      font-size: clamp(34px, 6vw, 76px); font-weight: 700;
-      letter-spacing: -0.02em; text-shadow: 0 2px 50px rgba(0,0,0,0.8);
-    }
+    /* VARIANT 2 — WebGL liquid glass */
+    #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #gl-fallback { position:absolute; inset:0; display:none; align-items:center; justify-content:center; color:rgba(255,255,255,.6); font-size:13px; }
 
-    /* ============ VARIANT 2 — liquid-glass logo lens ============ */
-    /* ambient background video, darkened + softened so the glass logo pops */
-    #v2-bg {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%; object-fit: cover;
-      filter: brightness(0.42) saturate(0.9) blur(2px);
-      transform: scale(1.06);
-    }
-    #v2-vignette {
-      position: absolute; inset: 0;
-      background: radial-gradient(120% 90% at 50% 45%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.6) 100%);
-      pointer-events: none;
-    }
-
-    /* the glass logo box — mouse-follows, holds the lens + rim + glint */
-    #glass {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: clamp(360px, 46vw, 880px);
-      aspect-ratio: 720 / 329;
-      transform: translate(-50%, -50%);
-      will-change: transform;
-    }
-    /* duplicate of the footage, brightened + liquid-displaced, clipped to the logo */
-    #glass-video {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%; object-fit: cover;
-      transform: scale(1.07);                 /* slight magnification = lens feel */
-      filter: url(#liquid) brightness(1.55) saturate(1.35) contrast(1.05);
-      -webkit-clip-path: url(#logoClip); clip-path: url(#logoClip);
-    }
-    /* moving specular glint, clipped to the logo */
-    #glass-glint {
-      position: absolute; inset: 0;
-      background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.55) 50%, transparent 62%);
-      background-size: 250% 250%;
-      mix-blend-mode: screen;
-      animation: sweep 7s linear infinite;
-      -webkit-clip-path: url(#logoClip); clip-path: url(#logoClip);
-      pointer-events: none;
-    }
-    @keyframes sweep { from { background-position: 210% 0; } to { background-position: -70% 0; } }
-    /* rim/sheen + glow, drawn as the logo outline */
-    #glass-rim {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      filter: drop-shadow(0 0 26px rgba(150,20,120,0.45)) drop-shadow(0 0 60px rgba(215,54,36,0.22));
-      pointer-events: none;
-    }
-
-    /* ============ chrome ============ */
-    .scroll-hint {
-      position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
-      font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
-      color: rgba(255,255,255,0.55); z-index: 6;
-      animation: bob 2s ease-in-out infinite; transition: opacity 0.4s;
-    }
+    .scroll-hint { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.55); z-index: 6; animation: bob 2s ease-in-out infinite; transition: opacity .4s; }
     @keyframes bob { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
+    #after { position: relative; z-index: 1; background: #000; padding: 120px 24px; text-align: center; color: rgba(255,255,255,.5); }
 
-    #after {
-      position: relative; z-index: 1; background: #000;
-      padding: 120px 24px; text-align: center; color: rgba(255,255,255,0.5);
-    }
-
-    /* variant menu — top center */
-    #variant-menu {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      z-index: 12; display: flex; gap: 4px; padding: 4px;
-      background: rgba(16,18,22,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.12); border-radius: 999px;
-    }
-    #variant-menu button {
-      appearance: none; border: 0; cursor: pointer;
-      padding: 7px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
-      color: rgba(255,255,255,0.7); background: transparent; transition: all .18s;
-      white-space: nowrap;
-    }
+    #variant-menu { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 12; display: flex; gap: 4px; padding: 4px; background: rgba(16,18,22,.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; }
+    #variant-menu button { appearance: none; border: 0; cursor: pointer; padding: 7px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,.7); background: transparent; transition: all .18s; white-space: nowrap; }
     #variant-menu button.active { background: #fff; color: #111; }
 
-    /* sliders panel — top right */
-    #controls {
-      position: fixed; top: 16px; right: 16px; z-index: 12;
-      width: 232px; padding: 16px 16px 14px;
-      background: rgba(16,18,22,0.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
-      font-size: 12px; color: rgba(255,255,255,0.85); user-select: none;
-    }
-    #controls .title { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 12px; }
+    #controls { position: fixed; top: 16px; right: 16px; z-index: 12; width: 232px; padding: 16px 16px 14px; background: rgba(16,18,22,.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; font-size: 12px; color: rgba(255,255,255,.85); user-select: none; }
+    #controls .title { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.4); margin-bottom: 12px; }
     #controls .ctrl { margin-bottom: 14px; } #controls .ctrl:last-child { margin-bottom: 0; }
     #controls .row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
     #controls .val { font-variant-numeric: tabular-nums; color: #fff; font-weight: 600; }
-    #controls input[type=range] {
-      -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
-      border-radius: 4px; background: rgba(255,255,255,0.18); outline: none; cursor: pointer;
-    }
-    #controls input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+    #controls input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); outline: none; cursor: pointer; }
+    #controls input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
     #controls input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: #fff; border: 0; }
   </style>
+
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }}
+  </script>
 </head>
 <body class="v2">
-
-  <!-- hidden defs: liquid displacement filter + logo clip path -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <filter id="liquid" x="-20%" y="-20%" width="140%" height="140%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.009 0.013" numOctaves="2" seed="7" result="noise">
-          <animate attributeName="baseFrequency" dur="22s" values="0.009 0.013;0.014 0.009;0.009 0.013" repeatCount="indefinite"/>
-        </feTurbulence>
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="16" xChannelSelector="R" yChannelSelector="G"/>
-      </filter>
-      <clipPath id="logoClip" clipPathUnits="objectBoundingBox">
-        <g transform="scale(0.00138889,0.00303951)">
-          <path d="M685.76,256.17S491.47,3.19,491.48,3.18c-.71-.93-1.62-1.68-2.67-2.18-4.38-2.17-9.92.64-10.65,5.51-.31,2.19-.08,252.83-.05,255.13.25,2.02,1.33,3.94,2.99,5.13,1.28.94,2.78,1.45,4.43,1.46,48.35-.06,145.88.04,194.28,0,6.05.06,9.8-7.23,5.95-12.06Z"/>
-          <path d="M206.93,256.18l-60.72-79.4c9.52-3.52,19.55-8.95,28.34-17.33,32.91-28.81,33.22-102.36.28-131.48C146.75.12,105.15.24,103.46.24c-.31,0-95.86.02-96.14,0C4.2.29,1.24,2.48.36,5.49.13,6.21.03,6.96.02,7.73,0,7.74.06,183.13,0,183.12c0,0,0,77.61,0,77.61,0,2.29,1.08,4.54,2.91,5.93,1.3,1.01,2.87,1.57,4.58,1.57,0,0,98.14,0,98.14,0,0,.03,95.33,0,95.34.01,6.07.06,9.76-7.24,5.96-12.06ZM146.17,176.77"/>
-          <path d="M383.46,20.89C331.62-6.19,295.35,1.36,245.85.03c0,0,.03,260.69.03,260.69,0,.27.02.55.05.82.21,1.95,1.2,3.78,2.73,5.01,1.29,1.05,2.93,1.68,4.73,1.68h46.4c37.33,1.21,101.56-10.11,127.19-61.76,10.08-19.35,15.29-42.95,15.26-70.81,0-53.81-19.78-92.43-58.78-114.78Z"/>
-        </g>
-      </clipPath>
-    </defs>
-  </svg>
 
   <div id="scrub-runway">
     <div id="stage">
@@ -176,44 +65,37 @@
       <!-- VARIANT 1 -->
       <div class="layer layer-v1">
         <div id="video-wrap">
-          <video id="v1-video" class="vid" src="media/hero.mp4" muted playsinline preload="auto" webkit-playsinline></video>
+          <video id="v1-video" src="media/hero.mp4" muted playsinline preload="auto" webkit-playsinline></video>
         </div>
         <div class="v1-title"><h1>RDA Digital</h1></div>
       </div>
 
       <!-- VARIANT 2 -->
       <div class="layer layer-v2">
-        <video id="v2-bg" class="vid" src="media/hero.mp4" muted playsinline preload="auto" webkit-playsinline></video>
-        <div id="v2-vignette"></div>
-        <div id="glass">
-          <video id="glass-video" class="vid" src="media/hero.mp4" muted playsinline preload="auto" webkit-playsinline></video>
-          <div id="glass-glint"></div>
-          <svg id="glass-rim" viewBox="0 0 720 329" preserveAspectRatio="xMidYMid meet">
-            <g fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.65)" stroke-width="1.4">
-              <path d="M685.76,256.17S491.47,3.19,491.48,3.18c-.71-.93-1.62-1.68-2.67-2.18-4.38-2.17-9.92.64-10.65,5.51-.31,2.19-.08,252.83-.05,255.13.25,2.02,1.33,3.94,2.99,5.13,1.28.94,2.78,1.45,4.43,1.46,48.35-.06,145.88.04,194.28,0,6.05.06,9.8-7.23,5.95-12.06Z"/>
-              <path d="M206.93,256.18l-60.72-79.4c9.52-3.52,19.55-8.95,28.34-17.33,32.91-28.81,33.22-102.36.28-131.48C146.75.12,105.15.24,103.46.24c-.31,0-95.86.02-96.14,0C4.2.29,1.24,2.48.36,5.49.13,6.21.03,6.96.02,7.73,0,7.74.06,183.13,0,183.12c0,0,0,77.61,0,77.61,0,2.29,1.08,4.54,2.91,5.93,1.3,1.01,2.87,1.57,4.58,1.57,0,0,98.14,0,98.14,0,0,.03,95.33,0,95.34.01,6.07.06,9.76-7.24,5.96-12.06ZM146.17,176.77"/>
-              <path d="M383.46,20.89C331.62-6.19,295.35,1.36,245.85.03c0,0,.03,260.69.03,260.69,0,.27.02.55.05.82.21,1.95,1.2,3.78,2.73,5.01,1.29,1.05,2.93,1.68,4.73,1.68h46.4c37.33,1.21,101.56-10.11,127.19-61.76,10.08-19.35,15.29-42.95,15.26-70.81,0-53.81-19.78-92.43-58.78-114.78Z"/>
-            </g>
-          </svg>
-        </div>
+        <canvas id="gl"></canvas>
+        <div id="gl-fallback">WebGL unavailable in this browser.</div>
       </div>
 
     </div>
   </div>
 
-  <div class="scroll-hint" id="hint">Scroll ↓</div>
+  <!-- hidden source video used as the WebGL texture -->
+  <video id="glass-source" src="media/hero.mp4" muted playsinline preload="auto" webkit-playsinline crossorigin="anonymous" style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px"></video>
 
+  <div class="scroll-hint" id="hint">Scroll ↓</div>
   <section id="after"><p>— scroll back up and the video rewinds —</p></section>
 
-  <!-- variant menu -->
   <div id="variant-menu">
     <button data-variant="1">1 · Feathered</button>
     <button data-variant="2" class="active">2 · Liquid Glass</button>
   </div>
 
-  <!-- sliders -->
   <div id="controls">
     <div class="title">Hero Sandbox</div>
+    <div class="ctrl">
+      <div class="row"><span>Size</span><span class="val" id="szVal">100%</span></div>
+      <input id="szSlider" type="range" min="60" max="170" step="1" value="100" />
+    </div>
     <div class="ctrl">
       <div class="row"><span>Mouse follow</span><span class="val" id="mfVal">25%</span></div>
       <input id="mfSlider" type="range" min="0" max="100" value="25" />
@@ -224,30 +106,38 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 329">
+      <path d="M685.76,256.17S491.47,3.19,491.48,3.18c-.71-.93-1.62-1.68-2.67-2.18-4.38-2.17-9.92.64-10.65,5.51-.31,2.19-.08,252.83-.05,255.13.25,2.02,1.33,3.94,2.99,5.13,1.28.94,2.78,1.45,4.43,1.46,48.35-.06,145.88.04,194.28,0,6.05.06,9.8-7.23,5.95-12.06Z"/>
+      <path d="M206.93,256.18l-60.72-79.4c9.52-3.52,19.55-8.95,28.34-17.33,32.91-28.81,33.22-102.36.28-131.48C146.75.12,105.15.24,103.46.24c-.31,0-95.86.02-96.14,0C4.2.29,1.24,2.48.36,5.49.13,6.21.03,6.96.02,7.73,0,7.74.06,183.13,0,183.12c0,0,0,77.61,0,77.61,0,2.29,1.08,4.54,2.91,5.93,1.3,1.01,2.87,1.57,4.58,1.57,0,0,98.14,0,98.14,0,0,.03,95.33,0,95.34.01,6.07.06,9.76-7.24,5.96-12.06ZM146.17,176.77"/>
+      <path d="M383.46,20.89C331.62-6.19,295.35,1.36,245.85.03c0,0,.03,260.69.03,260.69,0,.27.02.55.05.82.21,1.95,1.2,3.78,2.73,5.01,1.29,1.05,2.93,1.68,4.73,1.68h46.4c37.33,1.21,101.56-10.11,127.19-61.76,10.08-19.35,15.29-42.95,15.26-70.81,0-53.81-19.78-92.43-58.78-114.78Z"/>
+    </svg>`;
+
+    // ---------- shared engine ----------
     const runway = document.getElementById('scrub-runway');
     const hint   = document.getElementById('hint');
     const wrapV1 = document.getElementById('video-wrap');
-    const glass  = document.getElementById('glass');
-
     const v1video = document.getElementById('v1-video');
-    const v2bg    = document.getElementById('v2-bg');
-    const gvideo  = document.getElementById('glass-video');
-    const allVideos = [v1video, v2bg, gvideo];
+    const src    = document.getElementById('glass-source');
 
-    // ---- tunables ----
     let HALF_PASSES = 4;
     const MAX_FOLLOW = 0.35;
-    let FOLLOW = 0.25 * MAX_FOLLOW;
+    let FOLLOW = 0.25 * MAX_FOLLOW;     // px-translate factor (variant 1)
+    let followNorm = 0.25;              // 0..1 (variant 2 tilt/drift)
+    let sizeMul = 1.0;
     const SCRUB_EASE = 0.12, FOLLOW_EASE = 0.08;
 
     let variant = 2;
-    let duration = 0, targetTime = 0, currentTime = 0, ready = false;
-    let mx = 0, my = 0, cx = 0, cy = 0;
+    let duration = 0, targetTime = 0, curTime = 0, ready = false;
+    let mx = 0, my = 0, cx = 0, cy = 0;     // px offsets (variant 1)
+    let nx = 0, ny = 0;                       // normalized mouse -1..1 (variant 2)
 
-    function pingpong(x){ const m = x % 2; return m < 1 ? m : 2 - m; }
-
-    function activeVideos(){ return variant === 2 ? [v2bg, gvideo] : [v1video]; }
+    const pingpong = x => { const m = x % 2; return m < 1 ? m : 2 - m; };
+    const activeVideos = () => variant === 2 ? [src] : [v1video];
 
     function computeTarget(){
       const scrollable = runway.offsetHeight - window.innerHeight;
@@ -255,42 +145,150 @@
       targetTime = pingpong(p * HALF_PASSES) * duration;
     }
 
+    // ---------- WebGL (variant 2) ----------
+    let gl = { ready:false };
+    function initGL(){
+      try {
+        const canvas = document.getElementById('gl');
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 4000);
+        camera.position.set(0, 0, 620);
+
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+        // video texture
+        const vtex = new THREE.VideoTexture(src);
+        vtex.colorSpace = THREE.SRGBColorSpace;
+
+        // feathered focal video plane (matches variant 1 look)
+        const planeMat = new THREE.ShaderMaterial({
+          uniforms: { map: { value: vtex } },
+          vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+          fragmentShader: `
+            uniform sampler2D map; varying vec2 vUv;
+            void main(){
+              vec3 c = pow(texture2D(map, vUv).rgb, vec3(2.2));   // sRGB->linear
+              vec2 p = (vUv - 0.5) * 2.0;
+              float d = length(p);
+              float mask = 1.0 - smoothstep(0.74, 1.55, d);       // ellipse feather to black
+              gl_FragColor = vec4(c * mask, 1.0);
+            }`
+        });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(1,1), planeMat);
+        plane.position.z = -2;
+        scene.add(plane);
+
+        // glass logo
+        const glassMat = new THREE.MeshPhysicalMaterial({
+          color: 0xffffff, metalness: 0, roughness: 0.07,
+          transmission: 1.0, thickness: 42, ior: 1.5,
+          clearcoat: 1.0, clearcoatRoughness: 0.12,
+          envMapIntensity: 1.4, specularIntensity: 1.0,
+          attenuationColor: new THREE.Color(0xffffff), attenuationDistance: 4
+        });
+
+        const svg = new SVGLoader().parse(LOGO_SVG);
+        const shapes = [];
+        svg.paths.forEach(p => SVGLoader.createShapes(p).forEach(s => shapes.push(s)));
+        const geo = new THREE.ExtrudeGeometry(shapes, {
+          depth: 60, bevelEnabled: true, bevelThickness: 10, bevelSize: 8, bevelSegments: 5, curveSegments: 28
+        });
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox;
+        geo.translate(-(bb.max.x+bb.min.x)/2, -(bb.max.y+bb.min.y)/2, -(bb.max.z+bb.min.z)/2);
+        const logoNativeW = bb.max.x - bb.min.x;   // ~720
+
+        const logo = new THREE.Group();
+        logo.add(new THREE.Mesh(geo, glassMat));
+
+        const grp = new THREE.Group();   // wrapper for drift; logo handles tilt/scale
+        grp.add(logo);
+        scene.add(grp);
+
+        gl = { ready:true, renderer, scene, camera, plane, planeMat, logo, grp, logoNativeW, vtex };
+        layoutGL();
+        window.addEventListener('resize', layoutGL);
+      } catch (e) {
+        console.error('WebGL init failed', e);
+        document.getElementById('gl').style.display = 'none';
+        document.getElementById('gl-fallback').style.display = 'flex';
+      }
+    }
+
+    function visibleAt(z){
+      const dist = gl.camera.position.z - z;
+      const h = 2 * Math.tan(THREE.MathUtils.degToRad(gl.camera.fov)/2) * dist;
+      return { w: h * gl.camera.aspect, h };
+    }
+
+    function layoutGL(){
+      if (!gl.ready) return;
+      const W = window.innerWidth, H = window.innerHeight;
+      gl.renderer.setSize(W, H, false);
+      gl.camera.aspect = W / H;
+      gl.camera.updateProjectionMatrix();
+
+      const vis = visibleAt(0);
+      const boxW = vis.w * 0.5 * sizeMul;
+      const boxH = boxW * (464/832);
+      gl.plane.scale.set(boxW, boxH, 1);
+
+      const logoW = boxW * 0.98;
+      const s = logoW / gl.logoNativeW;
+      gl.logo.scale.set(s, -s, s);  // flip SVG y
+    }
+
+    // ---------- main loop ----------
     function tick(){
       if (ready){
-        currentTime += (targetTime - currentTime) * SCRUB_EASE;
-        if (Math.abs(targetTime - currentTime) < 0.001) currentTime = targetTime;
-        const t = Math.min(Math.max(currentTime, 0), Math.max(duration - 0.04, 0));
-        for (const v of activeVideos()){
-          if (Math.abs(v.currentTime - t) > 0.001) v.currentTime = t;
-        }
+        curTime += (targetTime - curTime) * SCRUB_EASE;
+        if (Math.abs(targetTime - curTime) < 0.001) curTime = targetTime;
+        const t = Math.min(Math.max(curTime, 0), Math.max(duration - 0.04, 0));
+        for (const v of activeVideos()) if (Math.abs(v.currentTime - t) > 0.001) v.currentTime = t;
       }
-      cx += (mx - cx) * FOLLOW_EASE;
-      cy += (my - cy) * FOLLOW_EASE;
-      wrapV1.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)`;
-      glass.style.transform  = `translate(calc(-50% + ${cx.toFixed(2)}px), calc(-50% + ${cy.toFixed(2)}px))`;
+      // eased px offsets (variant 1)
+      cx += (mx - cx) * FOLLOW_EASE; cy += (my - cy) * FOLLOW_EASE;
+      wrapV1.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px) scale(${sizeMul.toFixed(3)})`;
+
+      if (variant === 2 && gl.ready){
+        // tilt logo toward mouse + slight drift; plane drifts a touch for parallax
+        const tiltY = nx * 0.5 * followNorm;
+        const tiltX = ny * 0.35 * followNorm;
+        gl.logo.rotation.y += (tiltY - gl.logo.rotation.y) * 0.07;
+        gl.logo.rotation.x += (tiltX - gl.logo.rotation.x) * 0.07;
+        const vis = visibleAt(0);
+        const driftX = nx * vis.w * 0.04 * followNorm;
+        const driftY = -ny * vis.h * 0.04 * followNorm;
+        gl.grp.position.x += (driftX - gl.grp.position.x) * 0.07;
+        gl.grp.position.y += (driftY - gl.grp.position.y) * 0.07;
+        gl.plane.position.x += (driftX*0.45 - gl.plane.position.x) * 0.07;
+        gl.plane.position.y += (driftY*0.45 - gl.plane.position.y) * 0.07;
+        gl.renderer.render(gl.scene, gl.camera);
+      }
       requestAnimationFrame(tick);
     }
 
-    function onScroll(){
-      computeTarget();
-      hint.style.opacity = window.scrollY > 40 ? '0' : '1';
-    }
+    // ---------- events ----------
+    function onScroll(){ computeTarget(); hint.style.opacity = window.scrollY > 40 ? '0' : '1'; }
     function onMouse(e){
-      mx = (e.clientX - window.innerWidth / 2) * FOLLOW;
-      my = (e.clientY - window.innerHeight / 2) * FOLLOW;
+      mx = (e.clientX - innerWidth/2) * FOLLOW;
+      my = (e.clientY - innerHeight/2) * FOLLOW;
+      nx = (e.clientX / innerWidth) * 2 - 1;
+      ny = (e.clientY / innerHeight) * 2 - 1;
     }
+    function prime(){ [v1video, src].forEach(v => { const p = v.play(); if (p && p.then) p.then(()=>v.pause()).catch(()=>{}); }); }
 
-    v1video.addEventListener('loadedmetadata', () => {
-      duration = v1video.duration || 0;
-      computeTarget(); currentTime = targetTime; ready = true;
-      prime(); // warm decode so frames paint without waiting for a gesture (muted = autoplay-allowed)
+    src.addEventListener('loadedmetadata', () => {
+      duration = src.duration || 0; computeTarget(); curTime = targetTime; ready = true; prime();
     });
-
-    function prime(){
-      allVideos.forEach(v => { const p = v.play(); if (p && p.then) p.then(() => v.pause()).catch(()=>{}); });
-    }
-    window.addEventListener('touchstart', prime, { once: true, passive: true });
-    window.addEventListener('click', prime, { once: true });
+    window.addEventListener('touchstart', prime, { once:true, passive:true });
+    window.addEventListener('click', prime, { once:true });
 
     // variant menu
     document.querySelectorAll('#variant-menu button').forEach(btn => {
@@ -299,21 +297,24 @@
         document.body.classList.toggle('v1', variant === 1);
         document.body.classList.toggle('v2', variant === 2);
         document.querySelectorAll('#variant-menu button').forEach(b => b.classList.toggle('active', b === btn));
-        // re-sync the newly active videos immediately
-        const t = Math.min(Math.max(currentTime, 0), Math.max(duration - 0.04, 0));
-        activeVideos().forEach(v => { v.currentTime = t; });
+        if (variant === 2 && gl.ready) layoutGL();
+        const t = Math.min(Math.max(curTime, 0), Math.max(duration - 0.04, 0));
+        activeVideos().forEach(v => v.currentTime = t);
       });
     });
 
     // sliders
-    const mfSlider = document.getElementById('mfSlider'), ssSlider = document.getElementById('ssSlider');
-    const mfVal = document.getElementById('mfVal'), ssVal = document.getElementById('ssVal');
-    mfSlider.addEventListener('input', () => { const pct = +mfSlider.value; mfVal.textContent = pct + '%'; FOLLOW = (pct/100)*MAX_FOLLOW; });
-    ssSlider.addEventListener('input', () => { HALF_PASSES = +ssSlider.value; ssVal.textContent = ssSlider.value; computeTarget(); });
+    const szS = document.getElementById('szSlider'), mfS = document.getElementById('mfSlider'), ssS = document.getElementById('ssSlider');
+    const szV = document.getElementById('szVal'), mfV = document.getElementById('mfVal'), ssV = document.getElementById('ssVal');
+    szS.addEventListener('input', () => { sizeMul = +szS.value/100; szV.textContent = szS.value+'%'; if (gl.ready) layoutGL(); });
+    mfS.addEventListener('input', () => { const pct=+mfS.value; mfV.textContent=pct+'%'; FOLLOW=(pct/100)*MAX_FOLLOW; followNorm=pct/100; });
+    ssS.addEventListener('input', () => { HALF_PASSES=+ssS.value; ssV.textContent=ssS.value; computeTarget(); });
 
-    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive:true });
     window.addEventListener('resize', computeTarget);
-    window.addEventListener('mousemove', onMouse, { passive: true });
+    window.addEventListener('mousemove', onMouse, { passive:true });
+
+    initGL();
     requestAnimationFrame(tick);
   </script>
 </body>
