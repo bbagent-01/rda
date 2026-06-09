@@ -50,15 +50,22 @@
     .sentence .word { display: inline-block; }
     .sentence .accent { color: #ff5a3c; }
 
-    /* 2 — logo wall */
-    .logos-sec { background: linear-gradient(to bottom, rgba(5,7,10,0) 0%, #05070a 22%, #05070a 100%); min-height: 100vh; display: flex; align-items: center; }
-    .sec-eyebrow { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 40px; }
-    .logo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
-    .logo-cell { display: flex; align-items: center; justify-content: center; height: 110px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(255,255,255,0.015); }
-    .logo-cell span { color: #fff; opacity: 0.82; font-weight: 600; font-size: clamp(16px, 2vw, 22px); letter-spacing: -0.01em; }
+    /* 2 — logo wall (rectilinear grid spanning the fixed width) */
+    .logos-sec { background: transparent; min-height: 100vh; display: flex; align-items: center; }
+    .sec-eyebrow { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 36px; }
+    .logo-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); width: 100%;
+      border-top: 1px solid rgba(255,255,255,0.14); border-left: 1px solid rgba(255,255,255,0.14);
+    }
+    .logo-cell {
+      display: flex; align-items: center; justify-content: center; height: 132px;
+      border-right: 1px solid rgba(255,255,255,0.14); border-bottom: 1px solid rgba(255,255,255,0.14);
+    }
+    .logo-cell img { height: 30px; width: auto; max-width: 62%; opacity: 0.78; transition: opacity .25s; }
+    .logo-cell:hover img { opacity: 1; }
 
-    /* 3 — services (glass cards) */
-    .services-sec { background: #05070a; }
+    /* 3 — services (glass cards over the live background) */
+    .services-sec { background: transparent; }
     .services-head { font-size: clamp(28px, 4vw, 48px); font-weight: 600; letter-spacing: -0.02em; color: #fff; margin-bottom: 8px; }
     .services-sub { color: rgba(255,255,255,0.5); margin-bottom: 48px; font-size: 16px; }
     .service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -76,7 +83,7 @@
     .glass-card h3 { font-size: clamp(19px, 1.7vw, 23px); font-weight: 600; color: #fff; letter-spacing: -0.01em; line-height: 1.18; }
 
     /* 4 — schedule */
-    .schedule-sec { background: #05070a; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; }
+    .schedule-sec { background: transparent; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; }
     .schedule-inner { width: 100%; max-width: 880px; }
     .schedule-head { font-size: clamp(30px, 4.5vw, 56px); font-weight: 600; letter-spacing: -0.025em; color: #fff; margin-bottom: 12px; }
     .schedule-sub { color: rgba(255,255,255,0.55); margin-bottom: 40px; font-size: 17px; }
@@ -169,15 +176,19 @@
     <section id="s-logos" class="sec logos-sec">
       <div class="sec-inner">
         <div class="sec-eyebrow reveal">Partners who trust us</div>
-        <div class="logo-grid" data-reveal data-stagger="60">
-          <div class="logo-cell reveal"><span>Storyblok</span></div>
-          <div class="logo-cell reveal"><span>Sitecore</span></div>
-          <div class="logo-cell reveal"><span>Microsoft</span></div>
-          <div class="logo-cell reveal"><span>Salesforce</span></div>
-          <div class="logo-cell reveal"><span>AWS</span></div>
-          <div class="logo-cell reveal"><span>Shopify</span></div>
-          <div class="logo-cell reveal"><span>Algolia</span></div>
-          <div class="logo-cell reveal"><span>Vercel</span></div>
+        <div class="logo-grid" data-reveal data-stagger="55">
+          <div class="logo-cell reveal"><img src="media/logos/anthropic.svg" alt="Anthropic"></div>
+          <div class="logo-cell reveal"><img src="media/logos/figma.svg" alt="Figma"></div>
+          <div class="logo-cell reveal"><img src="media/logos/microsoft.svg" alt="Microsoft"></div>
+          <div class="logo-cell reveal"><img src="media/logos/storyblok.svg" alt="Storyblok"></div>
+          <div class="logo-cell reveal"><img src="media/logos/sitecore.svg" alt="Sitecore"></div>
+          <div class="logo-cell reveal"><img src="media/logos/salesforce.svg" alt="Salesforce"></div>
+          <div class="logo-cell reveal"><img src="media/logos/amazonwebservices.svg" alt="AWS"></div>
+          <div class="logo-cell reveal"><img src="media/logos/shopify.svg" alt="Shopify"></div>
+          <div class="logo-cell reveal"><img src="media/logos/algolia.svg" alt="Algolia"></div>
+          <div class="logo-cell reveal"><img src="media/logos/vercel.svg" alt="Vercel"></div>
+          <div class="logo-cell reveal"><img src="media/logos/netlify.svg" alt="Netlify"></div>
+          <div class="logo-cell reveal"><img src="media/logos/twilio.svg" alt="Twilio"></div>
         </div>
       </div>
     </section>
@@ -581,25 +592,28 @@
           p.appendChild(document.createTextNode(' '));
         });
       }
-      // staggered reveal groups
+      // staggered reveal groups — re-trigger every time they enter/leave the viewport
       document.querySelectorAll('[data-reveal]').forEach(group => {
         const step = +(group.dataset.stagger || 50);
         const items = group.querySelectorAll('.reveal');
         items.forEach((el, i) => el.style.transitionDelay = (i * step) + 'ms');
         const io = new IntersectionObserver(es => es.forEach(e => {
-          if (e.isIntersecting){ items.forEach(el => el.classList.add('in')); io.disconnect(); }
-        }), { threshold: 0.2 });
+          items.forEach(el => el.classList.toggle('in', e.isIntersecting));
+        }), { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
         io.observe(group);
       });
       // standalone reveals (not in a group)
       document.querySelectorAll('.reveal:not([data-reveal] .reveal)').forEach(el => {
         const io = new IntersectionObserver(es => es.forEach(e => {
-          if (e.isIntersecting){ el.classList.add('in'); io.disconnect(); }
-        }), { threshold: 0.2 });
+          el.classList.toggle('in', e.isIntersecting);
+        }), { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
         io.observe(el);
       });
     }
     initContent();
+    // always start at the top so the load/reveal sequence is visible
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
 
     initGL();
     // initial variant: deep-link #v1..#v5, else default to 5
