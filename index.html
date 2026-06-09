@@ -79,8 +79,9 @@
     </div>
   </div>
 
-  <!-- hidden source video used as the WebGL texture -->
-  <video id="glass-source" src="media/hero.mp4" muted playsinline preload="auto" webkit-playsinline crossorigin="anonymous" style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px"></video>
+  <!-- hidden source videos used as WebGL textures -->
+  <video id="glass-source"  src="media/hero.mp4"  muted playsinline preload="auto" webkit-playsinline crossorigin="anonymous" style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px"></video>
+  <video id="glass-source2" src="media/hero2.mp4" muted playsinline preload="auto" webkit-playsinline crossorigin="anonymous" style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px"></video>
 
   <div class="scroll-hint" id="hint">Scroll ↓</div>
   <section id="after"><p>— scroll back up and the video rewinds —</p></section>
@@ -128,7 +129,10 @@
     const hint   = document.getElementById('hint');
     const wrapV1 = document.getElementById('video-wrap');
     const v1video = document.getElementById('v1-video');
-    const src    = document.getElementById('glass-source');
+    const src    = document.getElementById('glass-source');    // hero.mp4  (variants 1-3)
+    const src2   = document.getElementById('glass-source2');   // hero2.mp4 (variant 4)
+    const VID_ASPECT  = 832/464;
+    const VID_ASPECT2 = 640/608;
 
     let HALF_PASSES = 4;
     const MAX_FOLLOW = 0.35;
@@ -149,12 +153,14 @@
     const FOLLOW_EASE_SLOW = 0.018;           // long, always-drifting mouse follow (v4)
 
     const pingpong = x => { const m = x % 2; return m < 1 ? m : 2 - m; };
-    const activeVideos = () => variant >= 2 ? [src] : [v1video];
+    const activeVideos = () => variant === 4 ? [src2] : variant >= 2 ? [src] : [v1video];
+    const activeDuration = () => { const v = activeVideos()[0]; return (v && v.duration) ? v.duration : 0; };
 
     function computeTarget(){
+      const dur = activeDuration();
       const scrollable = runway.offsetHeight - window.innerHeight;
       const p = scrollable > 0 ? Math.min(Math.max(window.scrollY / scrollable, 0), 1) : 0;
-      targetTime = pingpong(p * HALF_PASSES) * duration;
+      targetTime = pingpong(p * HALF_PASSES) * dur;
     }
 
     // ---------- WebGL (variant 2) ----------
@@ -174,9 +180,11 @@
         const pmrem = new THREE.PMREMGenerator(renderer);
         scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-        // video texture
+        // video textures
         const vtex = new THREE.VideoTexture(src);
         vtex.colorSpace = THREE.SRGBColorSpace;
+        const vtex2 = new THREE.VideoTexture(src2);
+        vtex2.colorSpace = THREE.SRGBColorSpace;
 
         // FULL-BLEED opaque background plane: feathered video focal centered on black.
         // Opaque everywhere => the glass always has a backdrop (black outside the video),
@@ -259,7 +267,7 @@
         grp.add(logo);
         scene.add(grp);
 
-        gl = { ready:true, renderer, scene, camera, plane, planeMat, logo, grp, meshLit, meshClear, meshFlat, logoNativeW, vtex };
+        gl = { ready:true, renderer, scene, camera, plane, planeMat, logo, grp, meshLit, meshClear, meshFlat, logoNativeW, vtex, vtex2 };
         layoutGL();
         window.addEventListener('resize', layoutGL);
       } catch (e) {
@@ -300,19 +308,20 @@
     // ---------- main loop ----------
     function tick(now){
       const dt = prevNow ? Math.min((now - prevNow)/1000, 0.05) : 0; prevNow = now;
-      if (ready){
+      const dur = activeDuration();
+      if (ready && dur){
         if (variant === 4){
           // autoplay: advance continuously; scrolling speeds it up
           scrollVel *= 0.90;
-          const rate = (1/duration) + scrollVel * SCROLL_GAIN;   // 1/duration = real-time speed
+          const rate = (1/dur) + scrollVel * SCROLL_GAIN;        // 1/dur = real-time speed
           phase4 += rate * dt;
-          targetTime = pingpong(phase4) * duration;
+          targetTime = pingpong(phase4) * dur;
           curTime = targetTime;                                  // direct = smooth playback
         } else {
           curTime += (targetTime - curTime) * SCRUB_EASE;
           if (Math.abs(targetTime - curTime) < 0.001) curTime = targetTime;
         }
-        const t = Math.min(Math.max(curTime, 0), Math.max(duration - 0.04, 0));
+        const t = Math.min(Math.max(curTime, 0), Math.max(dur - 0.04, 0));
         for (const v of activeVideos()) if (Math.abs(v.currentTime - t) > 0.001) v.currentTime = t;
       }
       // eased px offsets (variant 1)
@@ -363,11 +372,9 @@
       nx = (e.clientX / innerWidth) * 2 - 1;
       ny = (e.clientY / innerHeight) * 2 - 1;
     }
-    function prime(){ [v1video, src].forEach(v => { const p = v.play(); if (p && p.then) p.then(()=>v.pause()).catch(()=>{}); }); }
-
-    src.addEventListener('loadedmetadata', () => {
-      duration = src.duration || 0; computeTarget(); curTime = targetTime; ready = true; prime();
-    });
+    function prime(){ [v1video, src, src2].forEach(v => { const p = v.play(); if (p && p.then) p.then(()=>v.pause()).catch(()=>{}); }); }
+    src.addEventListener('loadedmetadata', () => { computeTarget(); curTime = targetTime; ready = true; prime(); });
+    src2.addEventListener('loadedmetadata', () => { if (variant === 4) computeTarget(); prime(); });
     window.addEventListener('touchstart', prime, { once:true, passive:true });
     window.addEventListener('click', prime, { once:true });
 
@@ -384,6 +391,9 @@
           gl.meshLit.visible   = variant === 2;
           gl.meshClear.visible = variant === 3;
           gl.meshFlat.visible  = variant === 4;
+          // variant 4 uses the second clip (hero2) + its aspect
+          gl.planeMat.uniforms.map.value        = variant === 4 ? gl.vtex2 : gl.vtex;
+          gl.planeMat.uniforms.uVidAspect.value = variant === 4 ? VID_ASPECT2 : VID_ASPECT;
           if (variant >= 2) layoutGL();
         }
         if (variant === 4 && duration) phase4 = curTime / duration;   // continue autoplay from current frame
