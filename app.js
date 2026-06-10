@@ -11,12 +11,12 @@ const PAGE_V = +(document.body.dataset.variant) || 5;
 // everywhere else line two is its own scroll section before the AI-first paragraph
 const HERO_COPY = PAGE_V === 10
   ? `<p class="sentence" data-sentence="A clear vision for victory."></p>
-     <p class="sentence hero-line2" data-sentence="If AI can build anything, clarity is what builds success."></p>`
+     <p class="sentence hero-line2" data-sentence="In a world where AI can build anything, clarity is what builds success."></p>`
   : `<p class="sentence" data-sentence="A clear vision for victory."></p>`;
 const LINE2_SECTION = PAGE_V === 10 ? '' : `
   <section class="scrub-sec sentence-sec">
     <div class="pin"><div class="sec-inner">
-      <p class="sentence" data-sentence="If AI can build anything, clarity is what builds success."></p>
+      <p class="sentence" data-sentence="In a world where AI can build anything, clarity is what builds success."></p>
     </div></div>
   </section>`;
 

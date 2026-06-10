@@ -54,7 +54,7 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
 /* hero welcome — auto-reveals on load, scrolls up out of focus.
    Identical layout/style to the body sentence sections. */
 .hero-welcome { position: absolute; inset: 0; display: flex; align-items: center; z-index: 5; pointer-events: none; padding: 14vh 7vw; }
-.hero-welcome .hero-line2 { margin-top: 28px; font-size: clamp(30px, 5.2vw, 74px); }   /* v10: second line at testimonial size */
+.hero-welcome .hero-line2 { margin-top: 26px; font-size: clamp(15px, 2.6vw, 37px); max-width: none; }   /* v10: second line, half size, single line */
 
 /* testimonials — separate sticky sections, tight scroll distance between them */
 .testimonial-sec { height: calc(var(--scrub-h) * 0.72); }
