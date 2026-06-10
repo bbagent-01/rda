@@ -5,7 +5,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 // ====================== shared page markup (one source for every version) ======================
 const NAV = [
   ['1','Feathered'], ['2','Liquid Glass'], ['3','Clear Glass'],
-  ['4','Flat Glass'], ['5','Trigger'], ['6','Scrub']
+  ['4','Flat Glass'], ['5','Trigger'], ['6','Scrub'],
+  ['7','Ribbons'], ['8','Podium']
 ].map(([n,label]) => `<a class="navlink" href="v${n}.html" data-v="${n}">${n} · ${label}</a>`).join('');
 
 const BODY_HTML = `

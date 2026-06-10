@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>RDA Digital — Hero Sandbox (v8 · Podium)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { overflow-x: hidden; }
+    #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+    #vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(125% 100% at 50% 38%, rgba(0,0,0,0) 42%, rgba(0,0,0,0.7) 100%); }
+    .hero-copy { position: fixed; left: 0; right: 0; top: 12vh; z-index: 5; display: flex; flex-direction: column;
+      align-items: center; text-align: center; padding: 0 7vw; pointer-events: none; }
+    .hero-copy .sentence { text-align: center; max-width: 14ch; font-size: clamp(36px, 5.6vw, 84px); }
+    .hero-copy .sub { margin-top: 22px; font-size: clamp(15px, 1.5vw, 20px); font-weight: 500;
+      color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
+    #runway { height: 260vh; }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
+  </script>
+</head>
+<body class="v8">
+
+  <canvas id="fx"></canvas>
+  <div id="vignette"></div>
+
+  <div class="hero-copy" id="copy">
+    <p class="sentence" data-sentence="Victory Never Sounded So Good."></p>
+    <p class="sub reveal">AI can play every instrument. Great leaders ensure the entire orchestra performs in harmony.</p>
+  </div>
+
+  <div class="scroll-hint" id="hint">Scroll ↓</div>
+  <div id="runway"></div>
+
+  <div id="variant-menu">
+    <a href="v1.html">1 · Feathered</a><a href="v2.html">2 · Liquid Glass</a><a href="v3.html">3 · Clear Glass</a>
+    <a href="v4.html">4 · Flat Glass</a><a href="v5.html">5 · Trigger</a><a href="v6.html">6 · Scrub</a>
+    <a href="v7.html">7 · Ribbons</a><a href="v8.html" class="active">8 · Podium</a>
+  </div>
+
+  <div id="controls">
+    <div class="title-row"><span class="title">Conductor · Podium</span><button id="refreshBtn">↻ Refresh</button></div>
+    <div class="ctrl"><div class="row"><span>Rows</span><span class="val" id="rwVal">5</span></div><input id="rwSlider" type="range" min="3" max="7" step="1" value="5" /></div>
+    <div class="ctrl"><div class="row"><span>Players / row</span><span class="val" id="clVal">26</span></div><input id="clSlider" type="range" min="12" max="36" step="1" value="26" /></div>
+    <div class="ctrl"><div class="row"><span>Wave speed</span><span class="val" id="wvVal">100%</span></div><input id="wvSlider" type="range" min="30" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Pulse width</span><span class="val" id="pwVal">100%</span></div><input id="pwSlider" type="range" min="40" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="30" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Crescendo (scroll)</span><span class="val" id="crVal">120%</span></div><input id="crSlider" type="range" min="0" max="300" step="5" value="120" /></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+    // ---------- copy reveal ----------
+    document.querySelectorAll('[data-sentence]').forEach(p => {
+      p.dataset.sentence.split(/\s+/).forEach(w => {
+        const s = document.createElement('span');
+        s.className = 'word reveal'; s.textContent = w;
+        p.appendChild(s); p.appendChild(document.createTextNode(' '));
+      });
+    });
+    const revealItems = [...document.querySelectorAll('#copy .reveal')];
+    revealItems.forEach((el, i) => el.style.transitionDelay = (i * 70) + 'ms');
+    setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
+
+    // ---------- controls ----------
+    const $ = id => document.getElementById(id);
+    const sliders = { rw:$('rwSlider'), cl:$('clSlider'), wv:$('wvSlider'), pw:$('pwSlider'), gl:$('glSlider'), cr:$('crSlider') };
+    const vals    = { rw:$('rwVal'),    cl:$('clVal'),    wv:$('wvVal'),    pw:$('pwVal'),    gl:$('glVal'),    cr:$('crVal') };
+    const cfg = { rw:5, cl:26, wv:1, pw:1, gl:1, cr:1.2 };
+    const fmt = { rw:v=>v, cl:v=>v, wv:v=>v+'%', pw:v=>v+'%', gl:v=>v+'%', cr:v=>v+'%' };
+    const scale = { rw:v=>+v, cl:v=>+v, wv:v=>v/100, pw:v=>v/100, gl:v=>v/100, cr:v=>v/100 };
+
+    const KEY = 'rda_v8_ctrls';
+    let suppress = true;
+    function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
+    Object.keys(sliders).forEach(k => {
+      sliders[k].addEventListener('input', () => {
+        cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
+        if (k === 'rw' || k === 'cl') rebuild();
+        persist();
+      });
+    });
+    try { const o = JSON.parse(localStorage.getItem(KEY)); if (o) Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } }); } catch(e){}
+    suppress = false;
+    $('refreshBtn').addEventListener('click', () => location.reload());
+
+    // ---------- scene ----------
+    const canvas = $('fx');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 1);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+
+    const ARC = THREE.MathUtils.degToRad(136);   // total arc the orchestra spans
+    const R0 = 5.2, RSTEP = 1.55;                // first-row radius + spacing
+    const H = 2.6;                               // pillar height
+
+    // gradient sections across the arc (strings → brass, abstracted)
+    const SECTIONS = ['#d73624', '#e8484f', '#c0277e', '#96077e', '#7c3aed'];
+
+    const VERT = `
+      uniform float uPulse;
+      attribute float aGlow;
+      attribute vec3 aColor;
+      varying vec3 vColor; varying float vGlow; varying vec3 vN; varying vec3 vV;
+      void main(){
+        vColor = aColor; vGlow = aGlow;
+        vec3 pos = position;
+        pos.y *= 1.0 + aGlow * uPulse;
+        vec4 wp = vec4(pos, 1.0);
+        #ifdef USE_INSTANCING
+          wp = instanceMatrix * wp;
+        #endif
+        vec4 mv = modelViewMatrix * wp;
+        vN = normalMatrix * normal;
+        vV = -mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }`;
+    const FRAG = `
+      uniform float uOpacity;
+      varying vec3 vColor; varying float vGlow; varying vec3 vN; varying vec3 vV;
+      void main(){
+        vec3 n = normalize(vN); vec3 v = normalize(vV);
+        float fres = pow(1.0 - abs(dot(n, v)), 2.2);
+        vec3 col = vec3(0.015, 0.016, 0.022);
+        col += vColor * (0.07 + vGlow * 1.25);
+        col += vColor * fres * (0.35 + vGlow * 0.9);
+        col += vec3(1.0) * fres * vGlow * 0.25;
+        gl_FragColor = vec4(col, uOpacity);
+      }`;
+
+    let mesh = null, mirror = null, pillars = [], glowAttr = null, glowArr = null;
+
+    function rebuild(){
+      if (mesh){ scene.remove(mesh); scene.remove(mirror.parent); mesh.geometry.dispose(); mesh.material.dispose(); mirror.material.dispose(); }
+      pillars = [];
+      const rows = cfg.rw, cols = cfg.cl, count = rows * cols;
+
+      const geo = new RoundedBoxGeometry(0.34, H, 0.34, 3, 0.07);
+      geo.translate(0, H / 2, 0);                 // base sits on the ground
+
+      const colorArr = new Float32Array(count * 3);
+      glowArr = new Float32Array(count);
+      const tmpC = new THREE.Color();
+      let idx = 0;
+      for (let r = 0; r < rows; r++){
+        const rad = R0 + r * RSTEP;
+        for (let c = 0; c < cols; c++){
+          const f = cols === 1 ? 0.5 : c / (cols - 1);
+          const th = (f - 0.5) * ARC;
+          const x = Math.sin(th) * rad, z = -Math.cos(th) * rad;
+          const sec = Math.min(Math.floor(f * SECTIONS.length), SECTIONS.length - 1);
+          tmpC.set(SECTIONS[sec]);
+          colorArr.set([tmpC.r, tmpC.g, tmpC.b], idx * 3);
+          pillars.push({ x, z, th, row: r });
+          idx++;
+        }
+      }
+      geo.setAttribute('aGlow', new THREE.InstancedBufferAttribute(glowArr, 1));
+      geo.setAttribute('aColor', new THREE.InstancedBufferAttribute(colorArr, 3));
+      glowAttr = geo.getAttribute('aGlow');
+
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG, transparent: true, side: THREE.DoubleSide,
+        uniforms: { uPulse: { value: 0.32 }, uOpacity: { value: 0.96 } }
+      });
+      mesh = new THREE.InstancedMesh(geo, mat, count);
+      const m4 = new THREE.Matrix4();
+      pillars.forEach((p, i) => { m4.makeTranslation(p.x, 0, p.z); mesh.setMatrixAt(i, m4); });
+      mesh.instanceMatrix.needsUpdate = true;
+      scene.add(mesh);
+
+      // faint floor reflection
+      const mmat = mat.clone(); mmat.uniforms.uOpacity.value = 0.13;
+      mirror = new THREE.InstancedMesh(geo, mmat, count);
+      pillars.forEach((p, i) => { m4.makeTranslation(p.x, 0, p.z); mirror.setMatrixAt(i, m4); });
+      mirror.instanceMatrix.needsUpdate = true;
+      const g = new THREE.Group(); g.scale.y = -1; g.add(mirror);
+      scene.add(g);
+    }
+
+    function layout(){
+      renderer.setSize(innerWidth, innerHeight, false);
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', layout);
+    layout();
+    rebuild();
+
+    // ---------- conducting: cursor cues + traveling waves ----------
+    let nx = 0, ny = 0, acc = 0, lastX = null, lastY = null;
+    const cues = [];   // {x, z, born, strength}
+    function groundFromMouse(){
+      const th = nx * (ARC / 2) * 0.92;
+      const rMax = R0 + (cfg.rw - 1) * RSTEP;
+      const rad = THREE.MathUtils.lerp(R0 - 0.6, rMax + 0.6, (1 - ny) / 2);   // top of screen = far rows
+      return { x: Math.sin(th) * rad, z: -Math.cos(th) * rad };
+    }
+    window.addEventListener('mousemove', e => {
+      nx = (e.clientX / innerWidth) * 2 - 1;
+      ny = (e.clientY / innerHeight) * 2 - 1;
+      if (lastX !== null) acc += Math.hypot(e.clientX - lastX, e.clientY - lastY);
+      lastX = e.clientX; lastY = e.clientY;
+      if (acc > 70){                          // a sweep of the baton cues a wave
+        acc = 0;
+        const g = groundFromMouse();
+        cues.push({ x: g.x, z: g.z, born: clockNow(), strength: 0.9 });
+        if (cues.length > 12) cues.shift();
+      }
+    }, { passive: true });
+    window.addEventListener('click', () => {  // downbeat: a strong cue
+      const g = groundFromMouse();
+      cues.push({ x: g.x, z: g.z, born: clockNow(), strength: 1.6 });
+      if (cues.length > 12) cues.shift();
+    });
+
+    // scroll: swell + copy fade
+    const copy = $('copy'), hint = $('hint');
+    let scrollP = 0;
+    function onScroll(){
+      const sc = document.documentElement.scrollHeight - innerHeight;
+      scrollP = sc > 0 ? Math.min(Math.max(scrollY / sc, 0), 1) : 0;
+      hint.style.opacity = scrollY > 40 ? '0' : '1';
+      const wp = Math.min(Math.max(scrollY / (innerHeight * 0.6), 0), 1);
+      copy.style.transform = `translateY(${(-wp * 70).toFixed(1)}px)`;
+      copy.style.opacity = (1 - wp).toFixed(3);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const clock = new THREE.Clock();
+    const clockNow = () => clock.getElapsedTime();
+
+    function tick(){
+      const t = clockNow();
+      const waveSpeed = 4.2 * cfg.wv;
+      const pw = 0.85 * cfg.pw;
+      const swell = 1 + scrollP * cfg.cr * 1.1;
+      const mg = groundFromMouse();
+
+      // expire old cues
+      for (let i = cues.length - 1; i >= 0; i--) if (t - cues[i].born > 5) cues.splice(i, 1);
+
+      for (let i = 0; i < pillars.length; i++){
+        const p = pillars[i];
+        // idle breathing so the orchestra is never dead
+        let g = 0.10 + 0.07 * Math.sin(p.th * 2.4 - t * 0.7 + p.row * 0.8);
+        // traveling waves from baton cues
+        for (const c of cues){
+          const d = Math.hypot(p.x - c.x, p.z - c.z);
+          const age = t - c.born;
+          const ring = Math.exp(-Math.pow(d - age * waveSpeed, 2) / (2 * pw * pw));
+          g += c.strength * ring * Math.exp(-age * 1.1);
+        }
+        // soft halo under the cursor itself
+        const dm = Math.hypot(p.x - mg.x, p.z - mg.z);
+        g += 0.45 * Math.exp(-(dm * dm) / 1.4);
+        glowArr[i] = Math.min(g * cfg.gl * swell, 1.7);
+      }
+      glowAttr.needsUpdate = true;
+
+      // podium camera; rises slightly with the crescendo
+      camera.position.set(nx * 0.7, 4.4 + scrollP * 1.7, 8.6);
+      camera.lookAt(0, 0.9, -5.2);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
