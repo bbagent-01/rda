@@ -16,7 +16,6 @@
     .hero-copy .sentence { text-align: center; max-width: 14ch; font-size: clamp(36px, 5.6vw, 84px); }
     .hero-copy .sub { margin-top: 22px; font-size: clamp(15px, 1.5vw, 20px); font-weight: 500;
       color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
-    #runway { height: 260vh; }
   </style>
   <script type="importmap">
   { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
@@ -33,12 +32,11 @@
   </div>
 
   <div class="scroll-hint" id="hint">Scroll ↓</div>
-  <div id="runway"></div>
 
   <div id="variant-menu">
     <a href="v1.html">1 · Feathered</a><a href="v2.html">2 · Liquid Glass</a><a href="v3.html">3 · Clear Glass</a>
     <a href="v4.html">4 · Flat Glass</a><a href="v5.html">5 · Trigger</a><a href="v6.html">6 · Scrub</a>
-    <a href="v7.html">7 · Ribbons</a><a href="v8.html" class="active">8 · Podium</a>
+    <a href="v7.html">7 · Ribbons</a><a href="v8.html" class="active">8 · Podium</a><a href="v9.html">9 · Shards</a>
   </div>
 
   <div id="controls">
@@ -54,9 +52,11 @@
   <script type="module">
     import * as THREE from 'three';
     import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import { mountSections } from './sections.js';
+    mountSections();
 
     // ---------- copy reveal ----------
-    document.querySelectorAll('[data-sentence]').forEach(p => {
+    document.querySelectorAll('#copy [data-sentence]').forEach(p => {
       p.dataset.sentence.split(/\s+/).forEach(w => {
         const s = document.createElement('span');
         s.className = 'word reveal'; s.textContent = w;

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>RDA Digital — Hero Sandbox (v9 · Shards)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { overflow-x: hidden; }
+    #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+    #vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(125% 100% at 50% 30%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%); }
+    .hero-copy { position: fixed; left: 0; right: 0; top: 14vh; z-index: 5; display: flex; flex-direction: column;
+      align-items: center; text-align: center; padding: 0 7vw; pointer-events: none; }
+    .hero-copy .sentence { text-align: center; max-width: 14ch; font-size: clamp(36px, 5.6vw, 84px); }
+    .hero-copy .sub { margin-top: 22px; font-size: clamp(15px, 1.5vw, 20px); font-weight: 500;
+      color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
+  </script>
+</head>
+<body class="v9">
+
+  <canvas id="fx"></canvas>
+  <div id="vignette"></div>
+
+  <div class="hero-copy" id="copy">
+    <p class="sentence" data-sentence="Victory Never Sounded So Good."></p>
+    <p class="sub reveal">AI can play every instrument. Great leaders ensure the entire orchestra performs in harmony.</p>
+  </div>
+
+  <div class="scroll-hint" id="hint">Scroll ↓</div>
+
+  <div id="variant-menu">
+    <a href="v1.html">1 · Feathered</a><a href="v2.html">2 · Liquid Glass</a><a href="v3.html">3 · Clear Glass</a>
+    <a href="v4.html">4 · Flat Glass</a><a href="v5.html">5 · Trigger</a><a href="v6.html">6 · Scrub</a>
+    <a href="v7.html">7 · Ribbons</a><a href="v8.html">8 · Podium</a><a href="v9.html" class="active">9 · Shards</a>
+  </div>
+
+  <div id="controls">
+    <div class="title-row"><span class="title">Conductor · Shards</span><button id="refreshBtn">↻ Refresh</button></div>
+    <div class="ctrl"><div class="row"><span>Rise height</span><span class="val" id="rhVal">100%</span></div><input id="rhSlider" type="range" min="40" max="200" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Reach</span><span class="val" id="rcVal">100%</span></div><input id="rcSlider" type="range" min="40" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Rise speed</span><span class="val" id="rsVal">100%</span></div><input id="rsSlider" type="range" min="20" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Fall speed</span><span class="val" id="fsVal">100%</span></div><input id="fsSlider" type="range" min="20" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="30" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Density</span><span class="val" id="dnVal">34</span></div><input id="dnSlider" type="range" min="20" max="48" step="1" value="34" /></div>
+    <div class="ctrl"><div class="row"><span>Rows</span><span class="val" id="rwVal">6</span></div><input id="rwSlider" type="range" min="4" max="8" step="1" value="6" /></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { mountSections } from './sections.js';
+    mountSections();
+
+    // ---------- copy reveal ----------
+    document.querySelectorAll('#copy [data-sentence]').forEach(p => {
+      p.dataset.sentence.split(/\s+/).forEach(w => {
+        const s = document.createElement('span');
+        s.className = 'word reveal'; s.textContent = w;
+        p.appendChild(s); p.appendChild(document.createTextNode(' '));
+      });
+    });
+    const revealItems = [...document.querySelectorAll('#copy .reveal')];
+    revealItems.forEach((el, i) => el.style.transitionDelay = (i * 70) + 'ms');
+    setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
+
+    // ---------- controls ----------
+    const $ = id => document.getElementById(id);
+    const sliders = { rh:$('rhSlider'), rc:$('rcSlider'), rs:$('rsSlider'), fs:$('fsSlider'), gl:$('glSlider'), dn:$('dnSlider'), rw:$('rwSlider') };
+    const vals    = { rh:$('rhVal'),    rc:$('rcVal'),    rs:$('rsVal'),    fs:$('fsVal'),    gl:$('glVal'),    dn:$('dnVal'),    rw:$('rwVal') };
+    const cfg = { rh:1, rc:1, rs:1, fs:1, gl:1, dn:34, rw:6 };
+    const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', dn:v=>v, rw:v=>v };
+    const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, dn:v=>+v, rw:v=>+v };
+
+    const KEY = 'rda_v9_ctrls';
+    let suppress = true;
+    function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
+    Object.keys(sliders).forEach(k => {
+      sliders[k].addEventListener('input', () => {
+        cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
+        if (k === 'dn' || k === 'rw') rebuild();
+        persist();
+      });
+    });
+    try { const o = JSON.parse(localStorage.getItem(KEY)); if (o) Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } }); } catch(e){}
+    suppress = false;
+    $('refreshBtn').addEventListener('click', () => location.reload());
+
+    // ---------- scene ----------
+    const canvas = $('fx');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 1);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+
+    const H = 3.2;                       // resting shard height
+    const RISE_BASE = 3.0;               // how many extra heights a full rise adds
+    const Z0 = -3.6, ZSTEP = 1.7;        // depth rows
+    const XSTEP = 0.78;
+
+    // glass cylinders
+    const VERT = `
+      uniform float uRiseScale; uniform float uH;
+      attribute float aRise;
+      varying float vRise; varying float vH; varying vec3 vN; varying vec3 vV;
+      void main(){
+        vRise = aRise;
+        vH = position.y / uH;
+        vec3 pos = position;
+        pos.y *= 1.0 + aRise * uRiseScale;
+        vec4 wp = vec4(pos, 1.0);
+        #ifdef USE_INSTANCING
+          wp = instanceMatrix * wp;
+        #endif
+        vec4 mv = modelViewMatrix * wp;
+        vN = normalMatrix * normal;
+        vV = -mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }`;
+    // colour = function of how high the shard has risen:
+    // low = darkest maroon/orange ... high = brightest glowing pink
+    const FRAG = `
+      uniform float uGlow;
+      varying float vRise; varying float vH; varying vec3 vN; varying vec3 vV;
+      vec3 ramp(float t){
+        vec3 c0 = vec3(0.27, 0.05, 0.03);   // dark maroon
+        vec3 c1 = vec3(0.84, 0.21, 0.14);   // RDA orange-red
+        vec3 c2 = vec3(0.59, 0.03, 0.49);   // RDA purple
+        vec3 c3 = vec3(1.00, 0.38, 0.85);   // brightest glowing pink
+        if (t < 0.33) return mix(c0, c1, t / 0.33);
+        if (t < 0.66) return mix(c1, c2, (t - 0.33) / 0.33);
+        return mix(c2, c3, (t - 0.66) / 0.34);
+      }
+      void main(){
+        vec3 n = normalize(vN); vec3 v = normalize(vV);
+        float fres = pow(1.0 - abs(dot(n, v)), 2.0);
+        float t = clamp(vRise, 0.0, 1.0);
+        vec3 c = ramp(t);
+        float inten = (0.30 + pow(t, 1.4) * 1.35) * uGlow;
+        vec3 col = c * inten * (0.55 + 0.45 * vH);          // brighter toward the tip
+        col += c * fres * (0.5 + t * 0.9);
+        col += vec3(1.0, 0.82, 0.95) * fres * t * 0.4;       // pink-white rim at full rise
+        gl_FragColor = vec4(col, 0.97);
+      }`;
+
+    let mesh = null, shards = [], riseAttr = null, riseArr = null, rises = null, targets = null;
+
+    function rebuild(){
+      if (mesh){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); }
+      shards = [];
+      const rows = cfg.rw, cols = cfg.dn, count = rows * cols;
+
+      const geo = new THREE.CylinderGeometry(0.17, 0.17, H, 18, 1);
+      geo.translate(0, H / 2, 0);   // base on the ground
+
+      riseArr = new Float32Array(count);
+      rises = new Float32Array(count);
+      targets = new Float32Array(count);
+      let idx = 0;
+      for (let r = 0; r < rows; r++){
+        for (let c = 0; c < cols; c++){
+          const jx = (Math.sin(idx * 12.9898) * 43758.5453 % 1) * 0.36 - 0.18;
+          const jz = (Math.sin(idx * 78.233)  * 12543.123  % 1) * 0.5  - 0.25;
+          const x = (c - (cols - 1) / 2) * XSTEP + jx;
+          const z = Z0 - r * ZSTEP + jz;
+          shards.push({ x, z, phase: Math.random() * Math.PI * 2 });
+          idx++;
+        }
+      }
+      geo.setAttribute('aRise', new THREE.InstancedBufferAttribute(riseArr, 1));
+      riseAttr = geo.getAttribute('aRise');
+
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG, transparent: true, side: THREE.DoubleSide,
+        uniforms: { uRiseScale: { value: RISE_BASE }, uH: { value: H }, uGlow: { value: 1 } }
+      });
+      mesh = new THREE.InstancedMesh(geo, mat, count);
+      const m4 = new THREE.Matrix4();
+      shards.forEach((p, i) => { m4.makeTranslation(p.x, 0, p.z); mesh.setMatrixAt(i, m4); });
+      mesh.instanceMatrix.needsUpdate = true;
+      scene.add(mesh);
+    }
+
+    function layout(){
+      renderer.setSize(innerWidth, innerHeight, false);
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', layout);
+    layout();
+    rebuild();
+
+    // ---------- mouse → ground ----------
+    const DEMO = new URLSearchParams(location.search).has('demo');
+    let nx = 0, ny = 0;
+    window.addEventListener('mousemove', e => {
+      nx = (e.clientX / innerWidth) * 2 - 1;
+      ny = (e.clientY / innerHeight) * 2 - 1;
+    }, { passive: true });
+    function groundFromMouse(){
+      const width = (cfg.dn - 1) * XSTEP;
+      const x = nx * (width / 2) * 0.92;
+      const zFar = Z0 - (cfg.rw - 1) * ZSTEP;
+      const z = THREE.MathUtils.lerp(Z0, zFar, (1 - (ny + 1) / 2));   // top of screen = far rows
+      return { x, z };
+    }
+
+    // ---------- scroll: swell + copy fade ----------
+    const copy = $('copy'), hint = $('hint');
+    let scrollP = 0;
+    function onScroll(){
+      const sc = document.documentElement.scrollHeight - innerHeight;
+      scrollP = sc > 0 ? Math.min(Math.max(scrollY / sc, 0), 1) : 0;
+      hint.style.opacity = scrollY > 40 ? '0' : '1';
+      const wp = Math.min(Math.max(scrollY / (innerHeight * 0.6), 0), 1);
+      copy.style.transform = `translateY(${(-wp * 70).toFixed(1)}px)`;
+      copy.style.opacity = (1 - wp).toFixed(3);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const clock = new THREE.Clock();
+    function tick(){
+      const t = clock.getElapsedTime();
+      const mg = DEMO ? { x: 0, z: Z0 - 2 * ZSTEP } : groundFromMouse();
+      const reach = 1.7 * cfg.rc;
+      const r2 = 2 * reach * reach;
+      const riseSpd = 0.085 * cfg.rs;
+      const fallSpd = 0.028 * cfg.fs;
+
+      for (let i = 0; i < shards.length; i++){
+        const p = shards[i];
+        // gentle idle undulation so the field breathes
+        let target = 0.05 + 0.045 * Math.sin(p.x * 0.45 + t * 0.5 + p.phase) + scrollP * 0.12;
+        // cursor lifts the shards
+        const dx = p.x - mg.x, dz = p.z - mg.z;
+        target += Math.exp(-(dx * dx + dz * dz) / r2);
+        target = Math.min(target, 1);
+        const cur = rises[i];
+        rises[i] = cur + (target - cur) * (target > cur ? riseSpd : fallSpd);
+        riseArr[i] = rises[i];
+      }
+      riseAttr.needsUpdate = true;
+
+      mesh.material.uniforms.uRiseScale.value = RISE_BASE * cfg.rh;
+      mesh.material.uniforms.uGlow.value = cfg.gl * (1 + scrollP * 0.5);
+
+      camera.position.set(nx * 0.6, 5.0, 10);
+      camera.lookAt(0, 4.4, -6);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

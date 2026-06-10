@@ -16,7 +16,6 @@
     .hero-copy .sentence { text-align: center; max-width: 14ch; }
     .hero-copy .sub { margin-top: 26px; font-size: clamp(15px, 1.6vw, 21px); font-weight: 500;
       color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
-    #runway { height: 260vh; }
   </style>
   <script type="importmap">
   { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
@@ -33,12 +32,11 @@
   </div>
 
   <div class="scroll-hint" id="hint">Scroll ↓</div>
-  <div id="runway"></div>
 
   <div id="variant-menu">
     <a href="v1.html">1 · Feathered</a><a href="v2.html">2 · Liquid Glass</a><a href="v3.html">3 · Clear Glass</a>
     <a href="v4.html">4 · Flat Glass</a><a href="v5.html">5 · Trigger</a><a href="v6.html">6 · Scrub</a>
-    <a href="v7.html" class="active">7 · Ribbons</a><a href="v8.html">8 · Podium</a>
+    <a href="v7.html" class="active">7 · Ribbons</a><a href="v8.html">8 · Podium</a><a href="v9.html">9 · Shards</a>
   </div>
 
   <div id="controls">
@@ -53,9 +51,11 @@
 
   <script type="module">
     import * as THREE from 'three';
+    import { mountSections } from './sections.js';
+    mountSections();
 
     // ---------- copy reveal (same word-stagger language as the other pages) ----------
-    document.querySelectorAll('[data-sentence]').forEach(p => {
+    document.querySelectorAll('#copy [data-sentence]').forEach(p => {
       p.dataset.sentence.split(/\s+/).forEach(w => {
         const s = document.createElement('span');
         s.className = 'word reveal'; s.textContent = w;
@@ -120,13 +120,14 @@
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }`;
     const FRAG = `
-      uniform vec3 uColor; uniform float uAlpha;
+      uniform vec3 uColor; uniform vec3 uColor2; uniform float uAlpha;
       varying vec2 vUv;
       void main(){
         float e = 1.0 - abs(vUv.y*2.0 - 1.0);
-        float a = pow(e, 1.6) * uAlpha;
-        vec3 col = uColor * (0.75 + 0.5*pow(e, 3.0));
-        col += vec3(1.0, 0.95, 0.95) * pow(e, 8.0) * 0.35;
+        float a = pow(e, 1.25) * uAlpha;
+        vec3 base = mix(uColor, uColor2, smoothstep(0.1, 0.9, vUv.x));   // colour shifts along the ribbon
+        vec3 col = base * (0.85 + 0.55*pow(e, 2.4));
+        col += vec3(1.0, 0.95, 0.97) * pow(e, 7.0) * 0.45;               // bright glass core
         gl_FragColor = vec4(col * a, a);
       }`;
 
@@ -139,7 +140,7 @@
       for (let i = 0; i < n; i++){
         const t = n === 1 ? 0.5 : i / (n - 1);
         const baseY = (t - 0.5) * 3.6;                       // vertical band the ribbons live in
-        const th = 0.12 + Math.abs(Math.sin(i * 2.7)) * 0.18; // varied thickness
+        const th = 0.22 + Math.abs(Math.sin(i * 2.7)) * 0.28; // thick glass ribbons
         const geo = new THREE.PlaneGeometry(ws.w * 1.35, th, 240, 1);
         const mat = new THREE.ShaderMaterial({
           vertexShader: VERT, fragmentShader: FRAG,
@@ -149,7 +150,9 @@
             uFreqP:{value:0.9 + (i % 5) * 0.22}, uSpeedP:{value:0.5 + ((i * 37) % 10) / 10 * 0.7},
             uPhase:{value:i * 1.31}, uFreqS:{value:1.05}, uSpeedS:{value:0.62},
             uBaseY:{value:baseY}, uBend:{value:0}, uMouse:{value:new THREE.Vector2(0, 0)},
-            uColor:{value:new THREE.Color(COLORS[i % COLORS.length])}, uAlpha:{value:0.5}
+            uColor:{value:new THREE.Color(COLORS[i % COLORS.length])},
+            uColor2:{value:new THREE.Color(COLORS[(i + 3) % COLORS.length])},
+            uAlpha:{value:0.62}
           }
         });
         const mesh = new THREE.Mesh(geo, mat);
