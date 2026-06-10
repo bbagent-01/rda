@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { SECTIONS_HTML, navHTML } from './sections.js';
+import { SECTIONS_HTML, navHTML, wireNav, initTestimonialRotator } from './sections.js';
 
 // ====================== shared page markup (one source for every version) ======================
 const NAV = navHTML('');   // active link set by applyVariant
@@ -21,7 +21,8 @@ const BODY_HTML = `
       </div>
       <!-- welcome: auto-reveals on load, scrolls up out of focus -->
       <div class="hero-welcome" data-reveal data-autoplay data-delay="1200">
-        <p class="sentence" data-sentence="Welcome to the future."></p>
+        <p class="sentence" data-sentence="A clear vision for victory."></p>
+        <p class="sub reveal">AI can build anything. Great leaders ensure it builds with clarity.</p>
       </div>
     </div>
   </div>
@@ -59,6 +60,7 @@ const BODY_HTML = `
 `;
 
 document.getElementById('app').innerHTML = BODY_HTML;
+wireNav();
 
 const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 329">
   <path d="M685.76,256.17S491.47,3.19,491.48,3.18c-.71-.93-1.62-1.68-2.67-2.18-4.38-2.17-9.92.64-10.65,5.51-.31,2.19-.08,252.83-.05,255.13.25,2.02,1.33,3.94,2.99,5.13,1.28.94,2.78,1.45,4.43,1.46,48.35-.06,145.88.04,194.28,0,6.05.06,9.8-7.23,5.95-12.06Z"/>
@@ -347,14 +349,15 @@ function initContent(){
     autoGroups.push({ group, items });
     setTimeout(() => items.forEach(el => el.classList.add('in')), +(group.dataset.delay || 650));
   });
-  // scroll-driven sections (auto-sec / hero welcome excluded)
-  document.querySelectorAll('.scrub-sec:not(.auto-sec)').forEach(sec => {
+  // scroll-driven sections (hero welcome + testimonial rotator handled separately)
+  document.querySelectorAll('.scrub-sec:not(.auto-sec):not(.t-rotator)').forEach(sec => {
     scrubSecs.push({ el: sec, items: [...sec.querySelectorAll('.reveal')],
                      hlines: [...sec.querySelectorAll('.hline')], vlines: [...sec.querySelectorAll('.vline')],
-                     lineWrap: sec.querySelector('.logo-wall') });
+                     lineWrap: sec.querySelector('.logo-wall, .service-wall') });
   });
   applyStagger();
   updateReveals();
+  initTestimonialRotator();
 }
 
 // ====================== controls ======================
@@ -415,6 +418,8 @@ function applyVariant(v){
   variant = v;
   [1,2,3,4,5,6].forEach(n => document.body.classList.toggle('v'+n, variant === n));
   document.querySelectorAll('#variant-menu a').forEach(a => a.classList.toggle('active', +a.dataset.v === variant));
+  const dropBtn = document.querySelector('#variant-menu .drop-btn');
+  if (dropBtn) dropBtn.classList.toggle('active', !!document.querySelector(`#variant-menu .drop-list a[data-v="${variant}"]`));
   if (variant >= 5) applyPreset({ bg:100, logo:97, ss:12, bd:160, bs:45, ld:50, ls:45 });
   document.body.classList.toggle('scrubmode', variant === 6);
   resetReveals(); updateReveals();

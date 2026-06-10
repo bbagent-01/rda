@@ -94,8 +94,9 @@
     const H = 8.0;                        // shard length — most of it hides below the frame
     const BASE_Y = -6.5;                  // bases sunk well below the bottom edge
     const RISE_BASE = 1.8;                // rise multiplier at 100%
-    const ARC = THREE.MathUtils.degToRad(140);   // amphitheater arc
+    const ARC = THREE.MathUtils.degToRad(165);   // amphitheater arc — wraps around the podium
     const R0 = 5.0, RSTEP = 1.6;          // first-row radius + row spacing
+    const TIER = 0.85;                    // each row back sits higher, like auditorium seating
 
     // glass cylinders
     const VERT = `
@@ -164,7 +165,7 @@
           const jr = ((Math.sin(idx * 78.233)  * 12543.123)  % 1) * 0.5  - 0.25;
           const th = (f - 0.5) * ARC + jt;
           const rr = rad + jr;
-          shards.push({ x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, phase: Math.random() * Math.PI * 2 });
+          shards.push({ x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, by: BASE_Y + r * TIER, phase: Math.random() * Math.PI * 2 });
           idx++;
         }
       }
@@ -177,7 +178,7 @@
       });
       mesh = new THREE.InstancedMesh(geo, mat, count);
       const m4 = new THREE.Matrix4();
-      shards.forEach((p, i) => { m4.makeTranslation(p.x, BASE_Y, p.z); mesh.setMatrixAt(i, m4); });
+      shards.forEach((p, i) => { m4.makeTranslation(p.x, p.by, p.z); mesh.setMatrixAt(i, m4); });
       mesh.instanceMatrix.needsUpdate = true;
       scene.add(mesh);
     }

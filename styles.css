@@ -37,9 +37,9 @@ body.v2 .layer-v2, body.v3 .layer-v2, body.v4 .layer-v2, body.v5 .layer-v2, body
 .scrub-sec .pin { position: sticky; top: 0; min-height: 100vh; display: flex; align-items: center; padding: 14vh 7vw; }
 .scrub-sec .pin.center { justify-content: center; text-align: center; }
 /* in scrub mode (v6) JS drives opacity/scale directly, so kill CSS transitions (welcome keeps them) */
-body.scrubmode .scrub-sec:not(.auto-sec) .reveal,
-body.scrubmode .scrub-sec:not(.auto-sec) .hline,
-body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
+body.scrubmode .scrub-sec:not(.auto-sec):not(.t-rotator) .reveal,
+body.scrubmode .scrub-sec:not(.auto-sec):not(.t-rotator) .hline,
+body.scrubmode .scrub-sec:not(.auto-sec):not(.t-rotator) .vline { transition: none !important; }
 
 /* staggered reveal — duration/easing are live-tunable via the panel */
 :root { --rv-dur: 2.2s; --rv-ease: cubic-bezier(.16,1,.3,1); --scrub-h: 150vh; }
@@ -52,12 +52,15 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
 .sentence .word { display: inline-block; }
 
 /* hero welcome — auto-reveals on load, scrolls up out of focus */
-.hero-welcome { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; padding: 0 7vw; }
+.hero-welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5; pointer-events: none; padding: 0 7vw; text-align: center; }
 .hero-welcome .sentence { text-align: center; max-width: none; }
+.hero-welcome .sub { margin-top: 26px; font-size: clamp(15px, 1.6vw, 21px); font-weight: 500; color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
 
-/* testimonials — shorter sticky runway so they follow each other quickly (still pin briefly to be read) */
-.testimonial-sec { height: calc(var(--scrub-h) * 0.8); }
-.testimonial-sec .quote { font-size: clamp(30px, 5.2vw, 74px); max-width: 18ch; }
+/* testimonials — ONE sticky section; the three quotes rotate through it on scroll */
+.t-rotator { height: 230vh; }
+.t-rotator .quote { font-size: clamp(30px, 5.2vw, 74px); max-width: 18ch; }
+.t-stage { position: relative; height: 60vh; }
+.t-quote { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; pointer-events: none; }
 .attrib { margin-top: 30px; font-size: 15px; letter-spacing: 0.04em; color: rgba(255,255,255,0.55); }
 
 /* 2 — logo wall (rectilinear grid spanning the fixed content width) */
@@ -73,24 +76,15 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
 .logo-wall.group-in .hline { transform: scaleX(1); }
 .logo-wall.group-in .vline { transform: scaleY(1); }
 
-/* 3 — services (glass cards over the live background) */
+/* 3 — services (same rectilinear grid language as the logo wall) */
 .services-sec { background: transparent; }
 .services-head { font-size: clamp(28px, 4vw, 48px); font-weight: 600; letter-spacing: -0.02em; color: #fff; margin-bottom: 8px; }
 .services-sub { color: rgba(255,255,255,0.5); margin-bottom: 48px; font-size: 16px; }
-.service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.glass-card {
-  position: relative; padding: 30px 26px; min-height: 180px; border-radius: 18px;
-  background: linear-gradient(150deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.10);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  display: flex; flex-direction: column; justify-content: space-between;
-  overflow: hidden;
-  transition: opacity var(--rv-dur) var(--rv-ease), transform var(--rv-dur) var(--rv-ease), border-color .25s ease;
-}
-.glass-card::before { content: ""; position: absolute; inset: 0; border-radius: 18px; background: radial-gradient(120% 80% at 0% 0%, rgba(255,90,60,0.10), transparent 55%); pointer-events: none; }
-.glass-card:hover { border-color: rgba(255,255,255,0.22); }
-.glass-card .num { font-size: 12px; letter-spacing: 0.14em; color: rgba(255,255,255,0.4); font-variant-numeric: tabular-nums; }
-.glass-card h3 { font-size: clamp(19px, 1.7vw, 23px); font-weight: 600; color: #fff; letter-spacing: -0.01em; line-height: 1.18; }
+.service-wall { position: relative; width: 100%; }
+.service-grid { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+.service-cell { min-height: 176px; padding: 26px 28px; display: flex; flex-direction: column; justify-content: space-between; }
+.service-cell .num { font-size: 12px; letter-spacing: 0.14em; color: rgba(255,255,255,0.4); font-variant-numeric: tabular-nums; }
+.service-cell h3 { font-size: clamp(19px, 1.7vw, 23px); font-weight: 600; color: #fff; letter-spacing: -0.01em; line-height: 1.18; text-shadow: 0 0 40px #000000; }
 
 /* 4 — schedule */
 .schedule-inner { width: 100%; max-width: 1180px; }
@@ -127,6 +121,14 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
 #variant-menu { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 12; display: flex; gap: 4px; padding: 4px; background: rgba(16,18,22,.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; }
 #variant-menu a { text-decoration: none; cursor: pointer; padding: 7px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,.7); background: transparent; transition: all .18s; white-space: nowrap; }
 #variant-menu a.active { background: #fff; color: #111; }
+/* archive dropdown */
+#variant-menu .nav-drop { position: relative; }
+#variant-menu .drop-btn { appearance: none; border: 0; cursor: pointer; padding: 7px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,.7); background: transparent; transition: all .18s; white-space: nowrap; }
+#variant-menu .drop-btn:hover { color: #fff; }
+#variant-menu .drop-btn.active { background: #fff; color: #111; }
+#variant-menu .drop-list { display: none; position: absolute; top: calc(100% + 10px); right: 0; flex-direction: column; gap: 2px; padding: 6px; min-width: 178px; background: rgba(16,18,22,.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; }
+#variant-menu .nav-drop:hover .drop-list, #variant-menu .nav-drop.open .drop-list { display: flex; }
+#variant-menu .drop-list a { padding: 8px 12px; border-radius: 8px; }
 
 #controls { position: fixed; top: 16px; right: 16px; z-index: 12; width: 232px; padding: 16px 16px 14px; background: rgba(16,18,22,.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; font-size: 12px; color: rgba(255,255,255,.85); user-select: none; }
 #controls .title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
