@@ -42,6 +42,8 @@
     <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="30" max="250" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Density</span><span class="val" id="dnVal">34</span></div><input id="dnSlider" type="range" min="20" max="48" step="1" value="34" /></div>
     <div class="ctrl"><div class="row"><span>Rows</span><span class="val" id="rwVal">6</span></div><input id="rwSlider" type="range" min="4" max="8" step="1" value="6" /></div>
+    <div class="ctrl"><div class="row"><span>Start position</span><span class="val" id="spVal">-2.0</span></div><input id="spSlider" type="range" min="-60" max="10" step="1" value="-20" /></div>
+    <div class="ctrl"><div class="row"><span>Scene size</span><span class="val" id="szVal">100%</span></div><input id="szSlider" type="range" min="40" max="140" step="1" value="100" /></div>
   </div>
 
   <script type="module">
@@ -63,11 +65,11 @@
 
     // ---------- controls ----------
     const $ = id => document.getElementById(id);
-    const sliders = { rh:$('rhSlider'), rc:$('rcSlider'), rs:$('rsSlider'), fs:$('fsSlider'), gl:$('glSlider'), dn:$('dnSlider'), rw:$('rwSlider') };
-    const vals    = { rh:$('rhVal'),    rc:$('rcVal'),    rs:$('rsVal'),    fs:$('fsVal'),    gl:$('glVal'),    dn:$('dnVal'),    rw:$('rwVal') };
-    const cfg = { rh:1, rc:1, rs:1, fs:1, gl:1, dn:34, rw:6 };
-    const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', dn:v=>v, rw:v=>v };
-    const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, dn:v=>+v, rw:v=>+v };
+    const sliders = { rh:$('rhSlider'), rc:$('rcSlider'), rs:$('rsSlider'), fs:$('fsSlider'), gl:$('glSlider'), dn:$('dnSlider'), rw:$('rwSlider'), sp:$('spSlider'), sz:$('szSlider') };
+    const vals    = { rh:$('rhVal'),    rc:$('rcVal'),    rs:$('rsVal'),    fs:$('fsVal'),    gl:$('glVal'),    dn:$('dnVal'),    rw:$('rwVal'),    sp:$('spVal'),    sz:$('szVal') };
+    const cfg = { rh:1, rc:1, rs:1, fs:1, gl:1, dn:34, rw:6, sp:-2.0, sz:1 };
+    const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', dn:v=>v, rw:v=>v, sp:v=>(v/10).toFixed(1), sz:v=>v+'%' };
+    const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, dn:v=>+v, rw:v=>+v, sp:v=>v/10, sz:v=>v/100 };
 
     const KEY = 'rda_v9_ctrls';
     let suppress = true;
@@ -143,10 +145,10 @@
         gl_FragColor = vec4(col, 0.97);
       }`;
 
-    let mesh = null, shards = [], riseAttr = null, riseArr = null, rises = null, targets = null;
+    let mesh = null, grp = null, shards = [], riseAttr = null, riseArr = null, rises = null, targets = null;
 
     function rebuild(){
-      if (mesh){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); }
+      if (mesh){ scene.remove(grp); mesh.geometry.dispose(); mesh.material.dispose(); }
       shards = [];
       const rows = cfg.rw, cols = cfg.dn, count = rows * cols;
 
@@ -180,7 +182,9 @@
       const m4 = new THREE.Matrix4();
       shards.forEach((p, i) => { m4.makeTranslation(p.x, p.by, p.z); mesh.setMatrixAt(i, m4); });
       mesh.instanceMatrix.needsUpdate = true;
-      scene.add(mesh);
+      grp = new THREE.Group();   // start-position + scene-size apply here (no rebuild needed)
+      grp.add(mesh);
+      scene.add(grp);
     }
 
     function layout(){
@@ -244,6 +248,8 @@
 
       mesh.material.uniforms.uRiseScale.value = RISE_BASE * cfg.rh;
       mesh.material.uniforms.uGlow.value = cfg.gl * (1 + scrollP * 0.5);
+      grp.position.y = cfg.sp;          // start position: sink/raise the whole field
+      grp.scale.setScalar(cfg.sz);      // scene size
 
       camera.position.set(nx * 0.7, 4.8, 9.0);
       camera.lookAt(0, 3.2, -5);

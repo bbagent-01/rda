@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { SECTIONS_HTML, navHTML, wireNav, initTestimonialRotator } from './sections.js';
+import { SECTIONS_HTML, navHTML, wireNav } from './sections.js';
 
 // ====================== shared page markup (one source for every version) ======================
 const NAV = navHTML('');   // active link set by applyVariant
@@ -22,7 +22,7 @@ const BODY_HTML = `
       <!-- welcome: auto-reveals on load, scrolls up out of focus -->
       <div class="hero-welcome" data-reveal data-autoplay data-delay="1200">
         <p class="sentence" data-sentence="A clear vision for victory."></p>
-        <p class="sub reveal">AI can build anything. Great leaders ensure it builds with clarity.</p>
+        <p class="sentence sub-big" data-sentence="If AI can build anything, clarity is what builds success"></p>
       </div>
     </div>
   </div>
@@ -349,15 +349,14 @@ function initContent(){
     autoGroups.push({ group, items });
     setTimeout(() => items.forEach(el => el.classList.add('in')), +(group.dataset.delay || 650));
   });
-  // scroll-driven sections (hero welcome + testimonial rotator handled separately)
-  document.querySelectorAll('.scrub-sec:not(.auto-sec):not(.t-rotator)').forEach(sec => {
+  // scroll-driven sections (hero welcome handled separately)
+  document.querySelectorAll('.scrub-sec:not(.auto-sec)').forEach(sec => {
     scrubSecs.push({ el: sec, items: [...sec.querySelectorAll('.reveal')],
                      hlines: [...sec.querySelectorAll('.hline')], vlines: [...sec.querySelectorAll('.vline')],
                      lineWrap: sec.querySelector('.logo-wall, .service-wall') });
   });
   applyStagger();
   updateReveals();
-  initTestimonialRotator();
 }
 
 // ====================== controls ======================

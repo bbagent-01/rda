@@ -84,20 +84,22 @@ export const SECTIONS_HTML = `
     </div></div>
   </section>
 
-  <section class="scrub-sec t-rotator">
-    <div class="pin center"><div class="sec-inner t-stage">
-      <div class="t-quote">
-        <p class="sentence quote" data-sentence="“RDA rebuilt our platform — and our growth followed.”"></p>
-        <div class="attrib reveal">VP, Digital · Global Retail</div>
-      </div>
-      <div class="t-quote">
-        <p class="sentence quote" data-sentence="“They move faster than any partner we've worked with.”"></p>
-        <div class="attrib reveal">CTO · Fintech</div>
-      </div>
-      <div class="t-quote">
-        <p class="sentence quote" data-sentence="“Strategy, design, and engineering — finally one team.”"></p>
-        <div class="attrib reveal">CMO · Enterprise SaaS</div>
-      </div>
+  <section class="scrub-sec testimonial-sec">
+    <div class="pin"><div class="sec-inner">
+      <p class="sentence quote" data-sentence="“RDA rebuilt our platform — and our growth followed.”"></p>
+      <div class="attrib reveal">VP, Digital · Global Retail</div>
+    </div></div>
+  </section>
+  <section class="scrub-sec testimonial-sec">
+    <div class="pin"><div class="sec-inner">
+      <p class="sentence quote" data-sentence="“They move faster than any partner we've worked with.”"></p>
+      <div class="attrib reveal">CTO · Fintech</div>
+    </div></div>
+  </section>
+  <section class="scrub-sec testimonial-sec">
+    <div class="pin"><div class="sec-inner">
+      <p class="sentence quote" data-sentence="“Strategy, design, and engineering — finally one team.”"></p>
+      <div class="attrib reveal">CMO · Enterprise SaaS</div>
     </div></div>
   </section>
 
@@ -144,7 +146,7 @@ export function mountSections(){
   });
 
   // scroll-triggered staggered reveals (v5-style) inside sticky sections
-  const secs = [...main.querySelectorAll('.scrub-sec:not(.t-rotator)')].map(sec => ({
+  const secs = [...main.querySelectorAll('.scrub-sec')].map(sec => ({
     el: sec,
     items: [...sec.querySelectorAll('.reveal')],
     lineWrap: sec.querySelector('.logo-wall, .service-wall')
@@ -165,25 +167,5 @@ export function mountSections(){
   addEventListener('scroll', update, { passive: true });
   addEventListener('resize', update);
   update();
-  initTestimonialRotator();
   return main;
-}
-
-// One sticky section; the three quotes rotate through it as you scroll.
-export function initTestimonialRotator(){
-  const rot = document.querySelector('.t-rotator');
-  if (!rot) return;
-  const quotes = [...rot.querySelectorAll('.t-quote')];
-  quotes.forEach(q => [...q.querySelectorAll('.reveal')].forEach((el, i) => el.style.transitionDelay = (i * 42) + 'ms'));
-  function update(){
-    const rect = rot.getBoundingClientRect();
-    const runway = rot.offsetHeight - innerHeight;
-    let p = runway > 0 ? (-rect.top) / runway : 0;
-    p = Math.min(Math.max(p, 0), 1);
-    const idx = p <= 0.02 ? -1 : Math.min(quotes.length - 1, Math.floor(p * quotes.length));
-    quotes.forEach((q, i) => q.querySelectorAll('.reveal').forEach(el => el.classList.toggle('in', i === idx)));
-  }
-  addEventListener('scroll', update, { passive: true });
-  addEventListener('resize', update);
-  update();
 }
