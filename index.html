@@ -164,9 +164,9 @@
         <div id="gl-fallback">WebGL unavailable in this browser.</div>
       </div>
 
-      <!-- welcome — fades in on load after 2s -->
+      <!-- welcome — staggers in word-by-word on load after 2s -->
       <div class="hero-welcome" data-reveal data-autoplay data-delay="2000">
-        <p class="sentence reveal">Welcome to the future.</p>
+        <p class="sentence" data-sentence="Welcome to the future."></p>
       </div>
 
     </div>
@@ -668,17 +668,15 @@
 
     function initContent(){
       // build the sentence word-by-word ([bracketed] words get the accent color)
-      const p = document.querySelector('[data-sentence]');
-      if (p){
-        p.dataset.sentence.split(/\s+/).forEach((w, i) => {
-          const accent = /^\[.*\]$/.test(w);
+      document.querySelectorAll('[data-sentence]').forEach(p => {
+        p.dataset.sentence.split(/\s+/).forEach(w => {
           const span = document.createElement('span');
-          span.className = 'word reveal' + (accent ? ' accent' : '');
-          span.textContent = accent ? w.slice(1, -1) : w;
+          span.className = 'word reveal';
+          span.textContent = w;
           p.appendChild(span);
           p.appendChild(document.createTextNode(' '));
         });
-      }
+      });
       // collect every reveal group (grouped + standalone) for live-tunable control
       document.querySelectorAll('[data-reveal]').forEach(group => {
         revGroups.push({ group, items: [...group.querySelectorAll('.reveal')],
