@@ -43,8 +43,8 @@
     <div class="ctrl"><div class="row"><span>Density</span><span class="val" id="dnVal">34</span></div><input id="dnSlider" type="range" min="20" max="48" step="1" value="34" /></div>
     <div class="ctrl"><div class="row"><span>Rows</span><span class="val" id="rwVal">6</span></div><input id="rwSlider" type="range" min="4" max="8" step="1" value="6" /></div>
     <div class="ctrl"><div class="row"><span>Start position</span><span class="val" id="spVal">-2.0</span></div><input id="spSlider" type="range" min="-60" max="10" step="1" value="-20" /></div>
-    <div class="ctrl"><div class="row"><span>Scene size</span><span class="val" id="szVal">100%</span></div><input id="szSlider" type="range" min="40" max="140" step="1" value="100" /></div>
-    <div class="ctrl"><div class="row"><span>Iris size</span><span class="val" id="isVal">100%</span></div><input id="isSlider" type="range" min="50" max="200" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Scene size</span><span class="val" id="szVal">100%</span></div><input id="szSlider" type="range" min="20" max="140" step="1" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Iris size</span><span class="val" id="isVal">100%</span></div><input id="isSlider" type="range" min="30" max="200" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Iris spin</span><span class="val" id="ipVal">100%</span></div><input id="ipSlider" type="range" min="0" max="300" step="5" value="100" /></div>
   </div>
 
@@ -73,7 +73,7 @@
     const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', dn:v=>v, rw:v=>v, sp:v=>(v/10).toFixed(1), sz:v=>v+'%', is:v=>v+'%', ip:v=>v+'%' };
     const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, dn:v=>+v, rw:v=>+v, sp:v=>v/10, sz:v=>v/100, is:v=>v/100, ip:v=>v/100 };
 
-    const KEY = 'rda_v11_ctrls';
+    const KEY = 'rda_v11_ctrls2';
     let suppress = true;
     function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
     Object.keys(sliders).forEach(k => {
@@ -83,7 +83,12 @@
         persist();
       });
     });
-    try { const o = JSON.parse(localStorage.getItem(KEY)); if (o) Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } }); } catch(e){}
+    // seed shared dials (shard size, position, etc.) from v9's saved settings, then overlay v11's own
+    try {
+      const read = k => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch(e){ return null; } };
+      const o = Object.assign({}, read('rda_v9_ctrls'), read(KEY));
+      Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } });
+    } catch(e){}
     suppress = false;
     $('refreshBtn').addEventListener('click', () => location.reload());
 
@@ -173,6 +178,7 @@
             x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, by: BASE_Y + r * TIER,
             phase: Math.random() * Math.PI * 2,
             // iris pose: even spread around the ring, organic jitter
+            f: idx / count,
             iA: (idx / count) * Math.PI * 2,
             iR: 0.92 + Math.abs((Math.sin(idx * 7.13) * 571.3) % 1) * 0.16,
             iL: 0.78 + Math.abs((Math.sin(idx * 3.71) * 833.1) % 1) * 0.42,
@@ -207,7 +213,9 @@
 
     // ---------- mouse → ground ----------
     const Q = new URLSearchParams(location.search);
-    const DEMO = Q.has('demo'), IRISDEMO = Q.has('iris');
+    const DEMO = Q.has('demo');
+    // ?iris forces full ring; ?iris=0.5 freezes mid-choreography (for visual checks)
+    const IRISP = Q.has('iris') ? (Q.get('iris') ? Math.min(Math.max(parseFloat(Q.get('iris')) || 0, 0), 1) : 1) : null;
     let nx = 0, ny = 0;
     window.addEventListener('mousemove', e => {
       nx = (e.clientX / innerWidth) * 2 - 1;
@@ -234,22 +242,24 @@
     }
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    const smooth = x => x * x * (3 - 2 * x);
+    const clamp01 = x => Math.min(Math.max(x, 0), 1);
+    const ss = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
     function irisProgress(){
-      if (IRISDEMO) return 1;
+      if (IRISP !== null) return IRISP;
       if (!irisSec) return 0;
       const r = irisSec.getBoundingClientRect();
-      const vh = innerHeight;
-      const enter = Math.min(Math.max((vh - r.top) / (vh * 0.85), 0), 1);     // assemble as the paragraph arrives
-      const exit  = Math.min(Math.max((r.bottom - vh * 0.15) / (vh * 0.85), 0), 1);  // dissolve as it leaves
-      return smooth(Math.min(enter, exit));
+      // assembles slowly as the paragraph section scrolls in — then STAYS for the rest of the page
+      return clamp01((innerHeight - r.top) / (innerHeight * 1.6));
     }
 
     const clock = new THREE.Clock();
     const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3();
+    let tAcc = 0, spinPhase = 0;
 
     function tick(){
-      const t = clock.getElapsedTime();
+      const dt = Math.min(clock.getDelta(), 0.05);
+      tAcc += dt;
+      const t = tAcc;
       const ti = irisProgress();
       const mg = DEMO ? { x: 0, z: -(R0 + 2 * RSTEP) } : groundFromMouse();
       const reach = 1.7 * cfg.rc;
@@ -262,29 +272,41 @@
       const lcx = (nx * 0.5) / cfg.sz;
       const lcy = (3.55 - cfg.sp) / cfg.sz;
       const lcz = -2.0 / cfg.sz;
-      const spin = t * 0.12 * cfg.ip;
+      // the shards file into a line hanging from the ring's top edge, extending off to the side;
+      // the line then curls down and wraps into the circle (curvature 0 -> 1)
+      const ax = lcx, ay = lcy + Rl;
+      const cu = ss(clamp01((ti - 0.42) / 0.58));
+      const curv = 0.02 + 0.98 * cu;
+      // perpetual spin, but only once the circle has closed — no spinning during the transition
+      const formed = ss(clamp01((ti - 0.92) / 0.08));
+      spinPhase += dt * 0.35 * cfg.ip * formed;
+      const sOff = (spinPhase % (Math.PI * 2)) * formed;
 
       for (let i = 0; i < shards.length; i++){
         const p = shards[i];
-        // rise: stadium behaviour fades out as the iris forms; a soft shimmer runs around the ring
+        // staggered file-in: each shard drifts aside to its slot in the line in turn
+        const li = ss(clamp01((ti - p.f * 0.15) / 0.45));
+
+        // rise: stadium behaviour fades out per-shard; a soft shimmer runs around the ring
         let target = (0.05 + 0.045 * Math.sin(p.th * 2.2 + t * 0.5 + p.phase) + scrollP * 0.12);
         const dx = p.x - mg.x, dz = p.z - mg.z;
         target += Math.exp(-(dx * dx + dz * dz) / r2);
-        target = Math.min(target, 1) * (1 - ti) + ti * (0.10 + 0.10 * Math.sin(p.iA * 3 + t * 1.4));
+        target = Math.min(target, 1) * (1 - li) + li * (0.10 + 0.10 * Math.sin(p.iA * 3 + t * 1.4));
         const cur = rises[i];
         rises[i] = cur + (target - cur) * (target > cur ? riseSpd : fallSpd);
         riseArr[i] = rises[i];
 
-        // pose blend: stadium -> iris ring (pointing inward, blank center)
-        const a = p.iA + spin;
-        const ix = lcx + Math.cos(a) * Rl * p.iR;
-        const iy = lcy + Math.sin(a) * Rl * p.iR;
-        const iz = lcz + p.iZ / cfg.sz;
-        _p.set(p.x + (ix - p.x) * ti, p.by + (iy - p.by) * ti, p.z + (iz - p.z) * ti);
-        _e.set(0, 0, (a + Math.PI / 2) * ti);   // axis rotated so the tip points in toward the blank center
+        // arc-length parametrised curling line: ph sweeps each shard around as the line wraps shut
+        const Re = (Rl * p.iR) / curv;
+        const ph = curv * (p.iA + sOff);
+        const lx = ax + Math.sin(ph) * Re;
+        const ly = ay + (Math.cos(ph) - 1) * Re;
+        const lz = lcz + (p.iZ / cfg.sz) * cu;
+        _p.set(p.x + (lx - p.x) * li, p.by + (ly - p.by) * li, p.z + (lz - p.z) * li);
+        _e.set(0, 0, (Math.PI - ph) * li);   // tips over to hang from the line, then follows the curl — always pointing in
         _q.setFromEuler(_e);
         const syIris = (Rl * 0.55 * p.iL) / H;
-        _s.set(1, 1 + (syIris - 1) * ti, 1);
+        _s.set(1, 1 + (syIris - 1) * li, 1);
         _m.compose(_p, _q, _s);
         mesh.setMatrixAt(i, _m);
       }
