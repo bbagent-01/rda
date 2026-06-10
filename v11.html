@@ -73,7 +73,7 @@
     const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', dn:v=>v, rw:v=>v, sp:v=>(v/10).toFixed(1), sz:v=>v+'%', is:v=>v+'%', ip:v=>v+'%' };
     const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, dn:v=>+v, rw:v=>+v, sp:v=>v/10, sz:v=>v/100, is:v=>v/100, ip:v=>v/100 };
 
-    const KEY = 'rda_v11_ctrls2';
+    const KEY = 'rda_v11_ctrls3';
     let suppress = true;
     function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
     Object.keys(sliders).forEach(k => {
@@ -125,30 +125,37 @@
         vV = -mv.xyz;
         gl_Position = projectionMatrix * mv;
       }`;
-    // resting colour = each shard's own hue (variety); rising blends toward the bright pink top
+    // jewel-glass palette: deep saturated hues that slowly cycle, with a colour
+    // gradient running along each shard (like the glass ribbons) + bright glassy rim
     const FRAG = `
-      uniform float uGlow;
+      uniform float uGlow; uniform float uTime;
       varying float vRise; varying float vHue; varying float vH; varying vec3 vN; varying vec3 vV;
-      vec3 ramp(float t){
-        vec3 c0 = vec3(0.27, 0.05, 0.03);
-        vec3 c1 = vec3(0.84, 0.21, 0.14);
-        vec3 c2 = vec3(0.59, 0.03, 0.49);
-        vec3 c3 = vec3(1.00, 0.38, 0.85);
-        if (t < 0.33) return mix(c0, c1, t / 0.33);
-        if (t < 0.66) return mix(c1, c2, (t - 0.33) / 0.33);
-        return mix(c2, c3, (t - 0.66) / 0.34);
+      vec3 pal(float t){
+        t = fract(t);
+        vec3 c0 = vec3(0.62, 0.04, 0.12);   // crimson
+        vec3 c1 = vec3(1.00, 0.42, 0.06);   // amber
+        vec3 c2 = vec3(0.93, 0.10, 0.55);   // magenta
+        vec3 c3 = vec3(0.52, 0.10, 0.95);   // violet
+        vec3 c4 = vec3(0.16, 0.22, 0.95);   // indigo
+        float s = t * 5.0;
+        if (s < 1.0) return mix(c0, c1, s);
+        if (s < 2.0) return mix(c1, c2, s - 1.0);
+        if (s < 3.0) return mix(c2, c3, s - 2.0);
+        if (s < 4.0) return mix(c3, c4, s - 3.0);
+        return mix(c4, c0, s - 4.0);
       }
       void main(){
         vec3 n = normalize(vN); vec3 v = normalize(vV);
         float fres = pow(1.0 - abs(dot(n, v)), 2.0);
         float t = clamp(vRise, 0.0, 1.0);
-        vec3 own = ramp(vHue);
-        vec3 c = mix(own, ramp(t), smoothstep(0.18, 0.85, t));
-        float inten = (0.38 + pow(t, 1.4) * 1.25) * uGlow;
-        vec3 col = c * inten * (0.55 + 0.45 * vH);
-        col += c * fres * (0.5 + t * 0.9);
-        col += vec3(1.0, 0.82, 0.95) * fres * t * 0.4;
-        gl_FragColor = vec4(col, 0.97);
+        float hue = vHue + uTime * 0.022;
+        vec3 c = mix(pal(hue), pal(hue + 0.16), vH);
+        c = mix(c, vec3(1.0, 0.55, 0.92), smoothstep(0.45, 1.0, t) * 0.6);
+        float inten = (0.5 + pow(t, 1.4) * 1.15) * uGlow;
+        vec3 col = c * inten * (0.45 + 0.55 * vH);
+        col += c * fres * (0.9 + t * 0.9);
+        col += vec3(1.0) * pow(fres, 3.0) * 0.35;
+        gl_FragColor = vec4(col, 0.96);
       }`;
 
     let mesh = null, grp = null, shards = [], riseAttr = null, riseArr = null, rises = null;
@@ -173,7 +180,7 @@
           const jr = ((Math.sin(idx * 78.233)  * 12543.123)  % 1) * 0.5  - 0.25;
           const th = (f - 0.5) * ARC + jt;
           const rr = rad + jr;
-          hueArr[idx] = Math.abs((Math.sin(idx * 4.898) * 9631.77) % 1) * 0.9;   // colour variety
+          hueArr[idx] = Math.abs((Math.sin(idx * 4.898) * 9631.77) % 1);   // colour variety, full hue range
           shards.push({
             x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, by: BASE_Y + r * TIER,
             phase: Math.random() * Math.PI * 2,
@@ -193,7 +200,7 @@
 
       const mat = new THREE.ShaderMaterial({
         vertexShader: VERT, fragmentShader: FRAG, transparent: true, side: THREE.DoubleSide,
-        uniforms: { uRiseScale: { value: RISE_BASE }, uH: { value: H }, uGlow: { value: 1 } }
+        uniforms: { uRiseScale: { value: RISE_BASE }, uH: { value: H }, uGlow: { value: 1 }, uTime: { value: 0 } }
       });
       mesh = new THREE.InstancedMesh(geo, mat, count);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -244,12 +251,14 @@
 
     const clamp01 = x => Math.min(Math.max(x, 0), 1);
     const ss = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
-    function irisProgress(){
-      if (IRISP !== null) return IRISP;
-      if (!irisSec) return 0;
+    function irisState(){
+      if (IRISP !== null) return { ti: IRISP, spin: 0 };
+      if (!irisSec) return { ti: 0, spin: 0 };
       const r = irisSec.getBoundingClientRect();
-      // assembles slowly as the paragraph section scrolls in — then STAYS for the rest of the page
-      return clamp01((innerHeight - r.top) / (innerHeight * 1.6));
+      const raw = (innerHeight - r.top) / (innerHeight * 1.6);
+      // assembles slowly as the paragraph section scrolls in, STAYS for the rest of the
+      // page, and keeps turning with every further pixel of scroll
+      return { ti: clamp01(raw), spin: Math.max(0, raw - 1) * 2.4 };
     }
 
     const clock = new THREE.Clock();
@@ -260,7 +269,8 @@
       const dt = Math.min(clock.getDelta(), 0.05);
       tAcc += dt;
       const t = tAcc;
-      const ti = irisProgress();
+      const st = irisState();
+      const ti = st.ti;
       const mg = DEMO ? { x: 0, z: -(R0 + 2 * RSTEP) } : groundFromMouse();
       const reach = 1.7 * cfg.rc;
       const r2 = 2 * reach * reach;
@@ -268,19 +278,20 @@
       const fallSpd = 0.028 * cfg.fs;
 
       // ring placement in group-local coords (compensates start-position + scene-size)
-      const Rl = (2.7 * cfg.is) / cfg.sz;
+      const Rl = (3.6 * cfg.is) / cfg.sz;
       const lcx = (nx * 0.5) / cfg.sz;
       const lcy = (3.55 - cfg.sp) / cfg.sz;
       const lcz = -2.0 / cfg.sz;
-      // the shards file into a line hanging from the ring's top edge, extending off to the side;
-      // the line then curls down and wraps into the circle (curvature 0 -> 1)
-      const ax = lcx, ay = lcy + Rl;
+      // the shards file UPRIGHT into a line along the ring's bottom edge, sliding sideways;
+      // the line then curls up and wraps into the circle, so each shard only ever tilts with
+      // the curve — motion stays perpendicular to the cylinder, no flipping, no in-place spin
+      const ax = lcx, ay = lcy - Rl;
       const cu = ss(clamp01((ti - 0.42) / 0.58));
       const curv = 0.02 + 0.98 * cu;
-      // perpetual spin, but only once the circle has closed — no spinning during the transition
+      // once the circle has closed it turns with the scroll (plus a slow ambient drift)
       const formed = ss(clamp01((ti - 0.92) / 0.08));
-      spinPhase += dt * 0.35 * cfg.ip * formed;
-      const sOff = (spinPhase % (Math.PI * 2)) * formed;
+      spinPhase += dt * 0.06 * formed;
+      const sOff = ((spinPhase + st.spin * cfg.ip) % (Math.PI * 2)) * formed;
 
       for (let i = 0; i < shards.length; i++){
         const p = shards[i];
@@ -300,12 +311,12 @@
         const Re = (Rl * p.iR) / curv;
         const ph = curv * (p.iA + sOff);
         const lx = ax + Math.sin(ph) * Re;
-        const ly = ay + (Math.cos(ph) - 1) * Re;
+        const ly = ay + (1 - Math.cos(ph)) * Re;
         const lz = lcz + (p.iZ / cfg.sz) * cu;
         _p.set(p.x + (lx - p.x) * li, p.by + (ly - p.by) * li, p.z + (lz - p.z) * li);
-        _e.set(0, 0, (Math.PI - ph) * li);   // tips over to hang from the line, then follows the curl — always pointing in
+        _e.set(0, 0, ph * li);   // upright in the line; tilts only as the curve bends — tips end up pointing in
         _q.setFromEuler(_e);
-        const syIris = (Rl * 0.55 * p.iL) / H;
+        const syIris = (Rl * 0.45 * p.iL) / H;
         _s.set(1, 1 + (syIris - 1) * li, 1);
         _m.compose(_p, _q, _s);
         mesh.setMatrixAt(i, _m);
@@ -315,6 +326,7 @@
 
       mesh.material.uniforms.uRiseScale.value = RISE_BASE * cfg.rh * (1 - ti * 0.85);
       mesh.material.uniforms.uGlow.value = cfg.gl * (1 + scrollP * 0.5);
+      mesh.material.uniforms.uTime.value = t;
       grp.position.y = cfg.sp;
       grp.scale.setScalar(cfg.sz);
 
