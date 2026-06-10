@@ -47,8 +47,9 @@
     /* 1 — sentence (transparent, over the hero) */
     .sentence-sec { min-height: 100vh; display: flex; align-items: center; background: transparent; }
     .sentence { font-size: clamp(40px, 7vw, 104px); line-height: 1.04; font-weight: 600; letter-spacing: -0.025em; color: #fff; max-width: 16ch; text-align: left;
-      text-shadow: 0 2px 44px rgba(0,0,0,0.8), 0 2px 10px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.6); }
+      text-shadow: 0 0 40px #000000; }
     .sentence .word { display: inline-block; }
+    .sentence .word.reveal { transition-duration: 4.4s; }   /* words animate in 2x slower than other elements */
 
     /* 2 — logo wall (rectilinear grid spanning the fixed content width) */
     .logos-sec { background: transparent; min-height: 100vh; display: flex; align-items: center; }
@@ -262,11 +263,11 @@
     </div>
     <div class="ctrl">
       <div class="row"><span>Mouse follow</span><span class="val" id="mfVal">25%</span></div>
-      <input id="mfSlider" type="range" min="0" max="100" value="25" />
+      <input id="mfSlider" type="range" min="0" max="300" value="25" />
     </div>
     <div class="ctrl">
       <div class="row"><span>Scroll sensitivity</span><span class="val" id="ssVal">4</span></div>
-      <input id="ssSlider" type="range" min="1" max="12" step="1" value="4" />
+      <input id="ssSlider" type="range" min="1" max="40" step="1" value="4" />
     </div>
   </div>
 
@@ -463,22 +464,20 @@
 
     // ---------- main loop ----------
     function tick(now){
-      const dt = prevNow ? Math.min((now - prevNow)/1000, 0.05) : 0; prevNow = now;
-      const dur = activeDuration();
-      if (ready && dur){
-        if (variant >= 4){
-          // autoplay: advance continuously; scrolling speeds it up
-          scrollVel *= 0.90;
-          const rate = (1/dur) * 0.5 + scrollVel * SCROLL_GAIN;  // 0.5 = half-speed idle playback
-          phase4 += rate * dt;
-          targetTime = pingpong(phase4) * dur;
-          curTime = targetTime;                                  // direct = smooth playback
-        } else {
+      prevNow = now;
+      if (variant >= 4){
+        // native autoplay (loops); idles at half speed; scrolling speeds it up
+        scrollVel *= 0.92;
+        if (src2.paused) src2.play().catch(()=>{});
+        src2.playbackRate = Math.min(0.5 + scrollVel * HALF_PASSES * 0.001, 20);
+      } else if (ready){
+        const dur = activeDuration();
+        if (dur){
           curTime += (targetTime - curTime) * SCRUB_EASE;
           if (Math.abs(targetTime - curTime) < 0.001) curTime = targetTime;
+          const t = Math.min(Math.max(curTime, 0), Math.max(dur - 0.04, 0));
+          for (const v of activeVideos()) if (Math.abs(v.currentTime - t) > 0.001) v.currentTime = t;
         }
-        const t = Math.min(Math.max(curTime, 0), Math.max(dur - 0.04, 0));
-        for (const v of activeVideos()) if (Math.abs(v.currentTime - t) > 0.001) v.currentTime = t;
       }
       // eased px offsets (variant 1)
       cx += (mx - cx) * FOLLOW_EASE; cy += (my - cy) * FOLLOW_EASE;
@@ -528,7 +527,12 @@
       nx = (e.clientX / innerWidth) * 2 - 1;
       ny = (e.clientY / innerHeight) * 2 - 1;
     }
-    function prime(){ [v1video, src, src2].forEach(v => { const p = v.play(); if (p && p.then) p.then(()=>v.pause()).catch(()=>{}); }); }
+    function prime(){
+      [v1video, src].forEach(v => { const p = v.play(); if (p && p.then) p.then(()=>v.pause()).catch(()=>{}); });
+      src2.loop = true;
+      if (variant >= 4) src2.play().catch(()=>{});           // autoplay source keeps playing
+      else { const p = src2.play(); if (p && p.then) p.then(()=>src2.pause()).catch(()=>{}); }
+    }
     src.addEventListener('loadedmetadata', () => { computeTarget(); curTime = targetTime; ready = true; prime(); });
     src2.addEventListener('loadedmetadata', () => { if (variant === 4) computeTarget(); prime(); });
     window.addEventListener('touchstart', prime, { once:true, passive:true });
@@ -550,10 +554,10 @@
           gl.planeMat.uniforms.uVidAspect.value = variant >= 4 ? VID_ASPECT2 : VID_ASPECT;
           if (variant >= 2) layoutGL();
         }
-        const dur = activeDuration();
-        if (variant >= 4 && dur) phase4 = curTime / dur;   // continue autoplay from current frame
-        const t = Math.min(Math.max(curTime, 0), Math.max(dur - 0.04, 0));
-        activeVideos().forEach(v => v.currentTime = t);
+        // v4/v5 play natively (loop); other variants scrub manually
+        src2.loop = true;
+        if (variant >= 4) { src2.play().catch(()=>{}); }
+        else { src2.pause(); const dur = activeDuration(); const t = Math.min(Math.max(curTime,0), Math.max(dur-0.04,0)); activeVideos().forEach(v => v.currentTime = t); }
       });
     });
 
