@@ -40,8 +40,9 @@
     .sec { position: relative; padding: 14vh 7vw; }
     .sec-inner { max-width: 1180px; width: 100%; margin: 0 auto; }
 
-    /* staggered reveal — smooth, slow ease-out (shared by words, logos, cards) */
-    .reveal { opacity: 0; transform: translateY(30px); transition: opacity 2.2s cubic-bezier(.16,1,.3,1), transform 2.2s cubic-bezier(.16,1,.3,1); will-change: opacity, transform; }
+    /* staggered reveal — duration/easing are live-tunable via the panel */
+    :root { --rv-dur: 2.2s; --rv-ease: cubic-bezier(.16,1,.3,1); }
+    .reveal { opacity: 0; transform: translateY(30px); transition: opacity var(--rv-dur) var(--rv-ease), transform var(--rv-dur) var(--rv-ease); will-change: opacity, transform; }
     .reveal.in { opacity: 1; transform: none; }
 
     /* 1 — sentence (transparent, over the hero) */
@@ -49,7 +50,6 @@
     .sentence { font-size: clamp(40px, 7vw, 104px); line-height: 1.04; font-weight: 600; letter-spacing: -0.025em; color: #fff; max-width: 16ch; text-align: left;
       text-shadow: 0 0 40px #000000; }
     .sentence .word { display: inline-block; }
-    .sentence .word.reveal { transition-duration: 10s; }   /* words fade in very slowly */
 
     /* hero welcome — fades in on load (2s delay), fades out on scroll */
     .hero-welcome { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; padding: 0 7vw; }
@@ -65,8 +65,8 @@
     .logo-cell:hover img { opacity: 1; }
     /* grid lines that draw in (scale) with the logo reveal */
     .grid-lines span { position: absolute; background: rgba(255,255,255,0.16); pointer-events: none; }
-    .grid-lines .hline { left: 0; width: 100%; height: 1px; transform: scaleX(0); transform-origin: left center; transition: transform 2.8s cubic-bezier(.16,1,.3,1); }
-    .grid-lines .vline { top: 0; height: 100%; width: 1px; transform: scaleY(0); transform-origin: top center; transition: transform 2.8s cubic-bezier(.16,1,.3,1); }
+    .grid-lines .hline { left: 0; width: 100%; height: 1px; transform: scaleX(0); transform-origin: left center; transition: transform var(--rv-dur) var(--rv-ease); }
+    .grid-lines .vline { top: 0; height: 100%; width: 1px; transform: scaleY(0); transform-origin: top center; transition: transform var(--rv-dur) var(--rv-ease); }
     .logo-wall.group-in .hline { transform: scaleX(1); }
     .logo-wall.group-in .vline { transform: scaleY(1); }
 
@@ -82,7 +82,7 @@
       backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
       display: flex; flex-direction: column; justify-content: space-between;
       overflow: hidden;
-      transition: opacity 2.2s cubic-bezier(.16,1,.3,1), transform 2.2s cubic-bezier(.16,1,.3,1), border-color .25s ease;
+      transition: opacity var(--rv-dur) var(--rv-ease), transform var(--rv-dur) var(--rv-ease), border-color .25s ease;
     }
     .glass-card::before { content: ""; position: absolute; inset: 0; border-radius: 18px; background: radial-gradient(120% 80% at 0% 0%, rgba(255,90,60,0.10), transparent 55%); pointer-events: none; }
     .glass-card:hover { border-color: rgba(255,255,255,0.22); }
@@ -133,6 +133,9 @@
     #controls input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); outline: none; cursor: pointer; }
     #controls input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
     #controls input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: #fff; border: 0; }
+    #controls .divider { margin: 14px 0 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+    #controls select { width: 100%; appearance: none; -webkit-appearance: none; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 7px 10px; font-size: 12px; cursor: pointer; }
+    #controls select option { background: #11151c; color: #fff; }
   </style>
 
   <script type="importmap">
@@ -289,6 +292,31 @@
     <div class="ctrl">
       <div class="row"><span>Scroll sensitivity</span><span class="val" id="ssVal">4</span></div>
       <input id="ssSlider" type="range" min="1" max="40" step="1" value="4" />
+    </div>
+
+    <div class="divider">Reveal animation</div>
+    <div class="ctrl">
+      <div class="row"><span>Trigger position</span><span class="val" id="trVal">50%</span></div>
+      <input id="trSlider" type="range" min="0" max="90" step="1" value="50" />
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>Timing</span><span class="val" id="tmVal">2.2s</span></div>
+      <input id="tmSlider" type="range" min="0.2" max="8" step="0.1" value="2.2" />
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>Stagger delay</span><span class="val" id="stVal">42ms</span></div>
+      <input id="stSlider" type="range" min="0" max="300" step="2" value="42" />
+    </div>
+    <div class="ctrl">
+      <div class="row"><span>Easing</span></div>
+      <select id="esSelect">
+        <option value="cubic-bezier(.16,1,.3,1)">Smooth (expo)</option>
+        <option value="cubic-bezier(.22,.61,.36,1)">Ease-out</option>
+        <option value="cubic-bezier(.25,.46,.45,.94)">Gentle</option>
+        <option value="cubic-bezier(.45,0,.55,1)">Ease-in-out</option>
+        <option value="cubic-bezier(.34,1.56,.64,1)">Back</option>
+        <option value="linear">Linear</option>
+      </select>
     </div>
   </div>
 
@@ -594,6 +622,15 @@
     mfS.addEventListener('input', () => { const pct=+mfS.value; mfV.textContent=pct+'%'; FOLLOW=(pct/100)*MAX_FOLLOW; followNorm=pct/100; });
     ssS.addEventListener('input', () => { HALF_PASSES=+ssS.value; ssV.textContent=ssS.value; computeTarget(); });
 
+    // reveal-animation controls (affect all text + logos live)
+    const trS = document.getElementById('trSlider'), tmS = document.getElementById('tmSlider'),
+          stS = document.getElementById('stSlider'), esS = document.getElementById('esSelect');
+    const trV = document.getElementById('trVal'), tmV = document.getElementById('tmVal'), stV = document.getElementById('stVal');
+    trS.addEventListener('input', () => { revTrigger = +trS.value; trV.textContent = trS.value + '%'; setupObservers(); });
+    tmS.addEventListener('input', () => { tmV.textContent = tmS.value + 's'; document.documentElement.style.setProperty('--rv-dur', tmS.value + 's'); });
+    stS.addEventListener('input', () => { revStagger = +stS.value; stV.textContent = stS.value + 'ms'; applyStagger(); });
+    esS.addEventListener('change', () => { document.documentElement.style.setProperty('--rv-ease', esS.value); });
+
     // apply a slider preset programmatically (used by variant 5)
     function applyPreset({bg, logo, mf, ss}){
       szS.value = bg;  szS.dispatchEvent(new Event('input'));
@@ -607,6 +644,28 @@
     window.addEventListener('mousemove', onMouse, { passive:true });
 
     // ---------- content: sentence build + staggered reveals ----------
+    const revGroups = [];        // {group, items, autoplay, delay}
+    let revObservers = [];
+    let revStagger = 42;         // ms between items (live-tunable)
+    let revTrigger = 50;         // % from bottom where reveals fire (live-tunable)
+
+    function applyStagger(){
+      revGroups.forEach(g => g.items.forEach((el, i) => el.style.transitionDelay = (i * revStagger) + 'ms'));
+    }
+    function setupObservers(){
+      revObservers.forEach(o => o.disconnect()); revObservers = [];
+      const rootMargin = `0px 0px -${revTrigger}% 0px`;
+      revGroups.forEach(g => {
+        if (g.autoplay) return;   // autoplay groups are time-based, not observed
+        const io = new IntersectionObserver(es => es.forEach(e => {
+          g.items.forEach(el => el.classList.toggle('in', e.isIntersecting));
+          g.group.classList.toggle('group-in', e.isIntersecting);   // drives the drawing grid lines
+        }), { threshold: 0, rootMargin });
+        io.observe(g.group);
+        revObservers.push(io);
+      });
+    }
+
     function initContent(){
       // build the sentence word-by-word ([bracketed] words get the accent color)
       const p = document.querySelector('[data-sentence]');
@@ -620,30 +679,18 @@
           p.appendChild(document.createTextNode(' '));
         });
       }
-      // staggered reveal groups — re-trigger every time they enter/leave the viewport
+      // collect every reveal group (grouped + standalone) for live-tunable control
       document.querySelectorAll('[data-reveal]').forEach(group => {
-        const step = +(group.dataset.stagger || 50);
-        const items = group.querySelectorAll('.reveal');
-        items.forEach((el, i) => el.style.transitionDelay = (i * step) + 'ms');
-        if (group.hasAttribute('data-autoplay')){
-          // time-based reveal on load (e.g. the hero welcome after a delay) — not scroll-driven
-          const delay = +(group.dataset.delay || 650);
-          setTimeout(() => { items.forEach(el => el.classList.add('in')); group.classList.add('group-in'); }, delay);
-        } else {
-          const io = new IntersectionObserver(es => es.forEach(e => {
-            items.forEach(el => el.classList.toggle('in', e.isIntersecting));
-            group.classList.toggle('group-in', e.isIntersecting);   // drives the drawing grid lines
-          }), { threshold: 0, rootMargin: '0px 0px -50% 0px' });     // trigger later (near mid-viewport)
-          io.observe(group);
-        }
+        revGroups.push({ group, items: [...group.querySelectorAll('.reveal')],
+                         autoplay: group.hasAttribute('data-autoplay'), delay: +(group.dataset.delay || 650) });
       });
-      // standalone reveals (not in a group)
       document.querySelectorAll('.reveal:not([data-reveal] .reveal)').forEach(el => {
-        const io = new IntersectionObserver(es => es.forEach(e => {
-          el.classList.toggle('in', e.isIntersecting);
-        }), { threshold: 0, rootMargin: '0px 0px -50% 0px' });
-        io.observe(el);
+        revGroups.push({ group: el, items: [el], autoplay: false, delay: 0 });
       });
+      // autoplay groups reveal once on load (time-based); scroll groups are observed
+      revGroups.forEach(g => { if (g.autoplay) setTimeout(() => { g.items.forEach(el => el.classList.add('in')); g.group.classList.add('group-in'); }, g.delay); });
+      applyStagger();
+      setupObservers();
     }
     initContent();
     // always start at the top so the load/reveal sequence is visible
