@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>RDA Digital — Hero Sandbox (v9 · Shards)</title>
+  <title>RDA Digital — Hero Sandbox (v11 · Iris)</title>
   <link rel="stylesheet" href="styles.css" />
   <style>
     body { overflow-x: hidden; }
@@ -21,7 +21,7 @@
   { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
   </script>
 </head>
-<body class="v9">
+<body class="v11">
 
   <canvas id="fx"></canvas>
   <div id="vignette"></div>
@@ -34,7 +34,7 @@
   <div class="scroll-hint" id="hint">Scroll ↓</div>
 
   <div id="controls">
-    <div class="title-row"><span class="title">Conductor · Shards</span><button id="refreshBtn">↻ Refresh</button></div>
+    <div class="title-row"><span class="title">Conductor · Iris</span><button id="refreshBtn">↻ Refresh</button></div>
     <div class="ctrl"><div class="row"><span>Rise height</span><span class="val" id="rhVal">100%</span></div><input id="rhSlider" type="range" min="40" max="200" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Reach</span><span class="val" id="rcVal">100%</span></div><input id="rcSlider" type="range" min="40" max="300" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Rise speed</span><span class="val" id="rsVal">100%</span></div><input id="rsSlider" type="range" min="20" max="300" step="5" value="100" /></div>
@@ -44,12 +44,14 @@
     <div class="ctrl"><div class="row"><span>Rows</span><span class="val" id="rwVal">6</span></div><input id="rwSlider" type="range" min="4" max="8" step="1" value="6" /></div>
     <div class="ctrl"><div class="row"><span>Start position</span><span class="val" id="spVal">-2.0</span></div><input id="spSlider" type="range" min="-60" max="10" step="1" value="-20" /></div>
     <div class="ctrl"><div class="row"><span>Scene size</span><span class="val" id="szVal">100%</span></div><input id="szSlider" type="range" min="40" max="140" step="1" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Iris size</span><span class="val" id="isVal">100%</span></div><input id="isSlider" type="range" min="50" max="200" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Iris spin</span><span class="val" id="ipVal">100%</span></div><input id="ipSlider" type="range" min="0" max="300" step="5" value="100" /></div>
   </div>
 
   <script type="module">
     import * as THREE from 'three';
     import { mountSections, mountNav } from './sections.js';
-    mountSections(); mountNav('9');
+    mountSections(); mountNav('11');
 
     // ---------- copy reveal ----------
     document.querySelectorAll('#copy [data-sentence]').forEach(p => {
@@ -65,13 +67,13 @@
 
     // ---------- controls ----------
     const $ = id => document.getElementById(id);
-    const sliders = { rh:$('rhSlider'), rc:$('rcSlider'), rs:$('rsSlider'), fs:$('fsSlider'), gl:$('glSlider'), dn:$('dnSlider'), rw:$('rwSlider'), sp:$('spSlider'), sz:$('szSlider') };
-    const vals    = { rh:$('rhVal'),    rc:$('rcVal'),    rs:$('rsVal'),    fs:$('fsVal'),    gl:$('glVal'),    dn:$('dnVal'),    rw:$('rwVal'),    sp:$('spVal'),    sz:$('szVal') };
-    const cfg = { rh:1, rc:1, rs:1, fs:1, gl:1, dn:34, rw:6, sp:-2.0, sz:1 };
-    const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', dn:v=>v, rw:v=>v, sp:v=>(v/10).toFixed(1), sz:v=>v+'%' };
-    const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, dn:v=>+v, rw:v=>+v, sp:v=>v/10, sz:v=>v/100 };
+    const sliders = { rh:$('rhSlider'), rc:$('rcSlider'), rs:$('rsSlider'), fs:$('fsSlider'), gl:$('glSlider'), dn:$('dnSlider'), rw:$('rwSlider'), sp:$('spSlider'), sz:$('szSlider'), is:$('isSlider'), ip:$('ipSlider') };
+    const vals    = { rh:$('rhVal'),    rc:$('rcVal'),    rs:$('rsVal'),    fs:$('fsVal'),    gl:$('glVal'),    dn:$('dnVal'),    rw:$('rwVal'),    sp:$('spVal'),    sz:$('szVal'),    is:$('isVal'),    ip:$('ipVal') };
+    const cfg = { rh:1, rc:1, rs:1, fs:1, gl:1, dn:34, rw:6, sp:-2.0, sz:1, is:1, ip:1 };
+    const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', dn:v=>v, rw:v=>v, sp:v=>(v/10).toFixed(1), sz:v=>v+'%', is:v=>v+'%', ip:v=>v+'%' };
+    const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, dn:v=>+v, rw:v=>+v, sp:v=>v/10, sz:v=>v/100, is:v=>v/100, ip:v=>v/100 };
 
-    const KEY = 'rda_v9_ctrls';
+    const KEY = 'rda_v11_ctrls';
     let suppress = true;
     function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
     Object.keys(sliders).forEach(k => {
@@ -93,20 +95,19 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 
-    const H = 8.0;                        // shard length — most of it hides below the frame
-    const BASE_Y = -6.5;                  // bases sunk well below the bottom edge
-    const RISE_BASE = 1.8;                // rise multiplier at 100%
-    const ARC = THREE.MathUtils.degToRad(165);   // amphitheater arc — wraps around the podium
-    const R0 = 5.0, RSTEP = 1.6;          // first-row radius + row spacing
-    const TIER = 0.85;                    // each row back sits higher, like auditorium seating
+    const H = 8.0;
+    const BASE_Y = -6.5;
+    const RISE_BASE = 1.8;
+    const ARC = THREE.MathUtils.degToRad(165);
+    const R0 = 5.0, RSTEP = 1.6;
+    const TIER = 0.85;
 
-    // glass cylinders
     const VERT = `
       uniform float uRiseScale; uniform float uH;
-      attribute float aRise;
-      varying float vRise; varying float vH; varying vec3 vN; varying vec3 vV;
+      attribute float aRise; attribute float aHue;
+      varying float vRise; varying float vHue; varying float vH; varying vec3 vN; varying vec3 vV;
       void main(){
-        vRise = aRise;
+        vRise = aRise; vHue = aHue;
         vH = position.y / uH;
         vec3 pos = position;
         pos.y *= 1.0 + aRise * uRiseScale;
@@ -119,16 +120,15 @@
         vV = -mv.xyz;
         gl_Position = projectionMatrix * mv;
       }`;
-    // colour = function of how high the shard has risen:
-    // low = darkest maroon/orange ... high = brightest glowing pink
+    // resting colour = each shard's own hue (variety); rising blends toward the bright pink top
     const FRAG = `
       uniform float uGlow;
-      varying float vRise; varying float vH; varying vec3 vN; varying vec3 vV;
+      varying float vRise; varying float vHue; varying float vH; varying vec3 vN; varying vec3 vV;
       vec3 ramp(float t){
-        vec3 c0 = vec3(0.27, 0.05, 0.03);   // dark maroon
-        vec3 c1 = vec3(0.84, 0.21, 0.14);   // RDA orange-red
-        vec3 c2 = vec3(0.59, 0.03, 0.49);   // RDA purple
-        vec3 c3 = vec3(1.00, 0.38, 0.85);   // brightest glowing pink
+        vec3 c0 = vec3(0.27, 0.05, 0.03);
+        vec3 c1 = vec3(0.84, 0.21, 0.14);
+        vec3 c2 = vec3(0.59, 0.03, 0.49);
+        vec3 c3 = vec3(1.00, 0.38, 0.85);
         if (t < 0.33) return mix(c0, c1, t / 0.33);
         if (t < 0.66) return mix(c1, c2, (t - 0.33) / 0.33);
         return mix(c2, c3, (t - 0.66) / 0.34);
@@ -137,15 +137,16 @@
         vec3 n = normalize(vN); vec3 v = normalize(vV);
         float fres = pow(1.0 - abs(dot(n, v)), 2.0);
         float t = clamp(vRise, 0.0, 1.0);
-        vec3 c = ramp(t);
-        float inten = (0.30 + pow(t, 1.4) * 1.35) * uGlow;
-        vec3 col = c * inten * (0.55 + 0.45 * vH);          // brighter toward the tip
+        vec3 own = ramp(vHue);
+        vec3 c = mix(own, ramp(t), smoothstep(0.18, 0.85, t));
+        float inten = (0.38 + pow(t, 1.4) * 1.25) * uGlow;
+        vec3 col = c * inten * (0.55 + 0.45 * vH);
         col += c * fres * (0.5 + t * 0.9);
-        col += vec3(1.0, 0.82, 0.95) * fres * t * 0.4;       // pink-white rim at full rise
+        col += vec3(1.0, 0.82, 0.95) * fres * t * 0.4;
         gl_FragColor = vec4(col, 0.97);
       }`;
 
-    let mesh = null, grp = null, shards = [], riseAttr = null, riseArr = null, rises = null, targets = null;
+    let mesh = null, grp = null, shards = [], riseAttr = null, riseArr = null, rises = null;
 
     function rebuild(){
       if (mesh){ scene.remove(grp); mesh.geometry.dispose(); mesh.material.dispose(); }
@@ -153,11 +154,11 @@
       const rows = cfg.rw, cols = cfg.dn, count = rows * cols;
 
       const geo = new THREE.CylinderGeometry(0.17, 0.17, H, 18, 1);
-      geo.translate(0, H / 2, 0);   // base on the ground
+      geo.translate(0, H / 2, 0);
 
       riseArr = new Float32Array(count);
       rises = new Float32Array(count);
-      targets = new Float32Array(count);
+      const hueArr = new Float32Array(count);
       let idx = 0;
       for (let r = 0; r < rows; r++){
         const rad = R0 + r * RSTEP;
@@ -167,11 +168,21 @@
           const jr = ((Math.sin(idx * 78.233)  * 12543.123)  % 1) * 0.5  - 0.25;
           const th = (f - 0.5) * ARC + jt;
           const rr = rad + jr;
-          shards.push({ x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, by: BASE_Y + r * TIER, phase: Math.random() * Math.PI * 2 });
+          hueArr[idx] = Math.abs((Math.sin(idx * 4.898) * 9631.77) % 1) * 0.9;   // colour variety
+          shards.push({
+            x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, by: BASE_Y + r * TIER,
+            phase: Math.random() * Math.PI * 2,
+            // iris pose: even spread around the ring, organic jitter
+            iA: (idx / count) * Math.PI * 2,
+            iR: 0.92 + Math.abs((Math.sin(idx * 7.13) * 571.3) % 1) * 0.16,
+            iL: 0.78 + Math.abs((Math.sin(idx * 3.71) * 833.1) % 1) * 0.42,
+            iZ: (((Math.sin(idx * 9.41) * 247.9) % 1) - 0.5) * 1.0
+          });
           idx++;
         }
       }
       geo.setAttribute('aRise', new THREE.InstancedBufferAttribute(riseArr, 1));
+      geo.setAttribute('aHue', new THREE.InstancedBufferAttribute(hueArr, 1));
       riseAttr = geo.getAttribute('aRise');
 
       const mat = new THREE.ShaderMaterial({
@@ -179,10 +190,8 @@
         uniforms: { uRiseScale: { value: RISE_BASE }, uH: { value: H }, uGlow: { value: 1 } }
       });
       mesh = new THREE.InstancedMesh(geo, mat, count);
-      const m4 = new THREE.Matrix4();
-      shards.forEach((p, i) => { m4.makeTranslation(p.x, p.by, p.z); mesh.setMatrixAt(i, m4); });
-      mesh.instanceMatrix.needsUpdate = true;
-      grp = new THREE.Group();   // start-position + scene-size apply here (no rebuild needed)
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      grp = new THREE.Group();
       grp.add(mesh);
       scene.add(grp);
     }
@@ -197,7 +206,8 @@
     rebuild();
 
     // ---------- mouse → ground ----------
-    const DEMO = new URLSearchParams(location.search).has('demo');
+    const Q = new URLSearchParams(location.search);
+    const DEMO = Q.has('demo'), IRISDEMO = Q.has('iris');
     let nx = 0, ny = 0;
     window.addEventListener('mousemove', e => {
       nx = (e.clientX / innerWidth) * 2 - 1;
@@ -206,12 +216,13 @@
     function groundFromMouse(){
       const th = nx * (ARC / 2) * 0.92;
       const rMax = R0 + (cfg.rw - 1) * RSTEP;
-      const rad = THREE.MathUtils.lerp(R0 - 0.6, rMax + 0.6, (1 - (ny + 1) / 2));   // top of screen = far rows
+      const rad = THREE.MathUtils.lerp(R0 - 0.6, rMax + 0.6, (1 - (ny + 1) / 2));
       return { x: Math.sin(th) * rad, z: -Math.cos(th) * rad };
     }
 
-    // ---------- scroll: swell + copy fade ----------
+    // ---------- scroll: swell + copy fade + iris progress ----------
     const copy = $('copy'), hint = $('hint');
+    const irisSec = document.querySelector('.sentence-sec');   // the next paragraph: the ring forms around it
     let scrollP = 0;
     function onScroll(){
       const sc = document.documentElement.scrollHeight - innerHeight;
@@ -223,33 +234,67 @@
     }
     window.addEventListener('scroll', onScroll, { passive: true });
 
+    const smooth = x => x * x * (3 - 2 * x);
+    function irisProgress(){
+      if (IRISDEMO) return 1;
+      if (!irisSec) return 0;
+      const r = irisSec.getBoundingClientRect();
+      const vh = innerHeight;
+      const enter = Math.min(Math.max((vh - r.top) / (vh * 0.85), 0), 1);     // assemble as the paragraph arrives
+      const exit  = Math.min(Math.max((r.bottom - vh * 0.15) / (vh * 0.85), 0), 1);  // dissolve as it leaves
+      return smooth(Math.min(enter, exit));
+    }
+
     const clock = new THREE.Clock();
+    const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3();
+
     function tick(){
       const t = clock.getElapsedTime();
+      const ti = irisProgress();
       const mg = DEMO ? { x: 0, z: -(R0 + 2 * RSTEP) } : groundFromMouse();
       const reach = 1.7 * cfg.rc;
       const r2 = 2 * reach * reach;
       const riseSpd = 0.085 * cfg.rs;
       const fallSpd = 0.028 * cfg.fs;
 
+      // ring placement in group-local coords (compensates start-position + scene-size)
+      const Rl = (2.7 * cfg.is) / cfg.sz;
+      const lcx = (nx * 0.5) / cfg.sz;
+      const lcy = (3.55 - cfg.sp) / cfg.sz;
+      const lcz = -2.0 / cfg.sz;
+      const spin = t * 0.12 * cfg.ip;
+
       for (let i = 0; i < shards.length; i++){
         const p = shards[i];
-        // gentle idle undulation so the field breathes
-        let target = 0.05 + 0.045 * Math.sin(p.th * 2.2 + t * 0.5 + p.phase) + scrollP * 0.12;
-        // cursor lifts the shards
+        // rise: stadium behaviour fades out as the iris forms; a soft shimmer runs around the ring
+        let target = (0.05 + 0.045 * Math.sin(p.th * 2.2 + t * 0.5 + p.phase) + scrollP * 0.12);
         const dx = p.x - mg.x, dz = p.z - mg.z;
         target += Math.exp(-(dx * dx + dz * dz) / r2);
-        target = Math.min(target, 1);
+        target = Math.min(target, 1) * (1 - ti) + ti * (0.10 + 0.10 * Math.sin(p.iA * 3 + t * 1.4));
         const cur = rises[i];
         rises[i] = cur + (target - cur) * (target > cur ? riseSpd : fallSpd);
         riseArr[i] = rises[i];
+
+        // pose blend: stadium -> iris ring (pointing inward, blank center)
+        const a = p.iA + spin;
+        const ix = lcx + Math.cos(a) * Rl * p.iR;
+        const iy = lcy + Math.sin(a) * Rl * p.iR;
+        const iz = lcz + p.iZ / cfg.sz;
+        _p.set(p.x + (ix - p.x) * ti, p.by + (iy - p.by) * ti, p.z + (iz - p.z) * ti);
+        _e.set(0, 0, (a + Math.PI / 2) * ti);   // axis rotated so the tip points in toward the blank center
+        _q.setFromEuler(_e);
+        const syIris = (Rl * 0.55 * p.iL) / H;
+        _s.set(1, 1 + (syIris - 1) * ti, 1);
+        _m.compose(_p, _q, _s);
+        mesh.setMatrixAt(i, _m);
       }
       riseAttr.needsUpdate = true;
+      mesh.instanceMatrix.needsUpdate = true;
 
-      mesh.material.uniforms.uRiseScale.value = RISE_BASE * cfg.rh;
+      mesh.material.uniforms.uRiseScale.value = RISE_BASE * cfg.rh * (1 - ti * 0.85);
       mesh.material.uniforms.uGlow.value = cfg.gl * (1 + scrollP * 0.5);
-      grp.position.y = cfg.sp;          // start position: sink/raise the whole field
-      grp.scale.setScalar(cfg.sz);      // scene size
+      grp.position.y = cfg.sp;
+      grp.scale.setScalar(cfg.sz);
 
       camera.position.set(nx * 0.7, 4.8, 9.0);
       camera.lookAt(0, 3.2, -5);
