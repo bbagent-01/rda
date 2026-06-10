@@ -5,6 +5,20 @@ import { SECTIONS_HTML, navHTML, wireNav } from './sections.js';
 
 // ====================== shared page markup (one source for every version) ======================
 const NAV = navHTML('');   // active link set by applyVariant
+const PAGE_V = +(document.body.dataset.variant) || 5;
+
+// v10 keeps both lines in the hero (second line testimonial-sized);
+// everywhere else line two is its own scroll section before the AI-first paragraph
+const HERO_COPY = PAGE_V === 10
+  ? `<p class="sentence" data-sentence="A clear vision for victory."></p>
+     <p class="sentence hero-line2" data-sentence="If AI can build anything, clarity is what builds success."></p>`
+  : `<p class="sentence" data-sentence="A clear vision for victory."></p>`;
+const LINE2_SECTION = PAGE_V === 10 ? '' : `
+  <section class="scrub-sec sentence-sec">
+    <div class="pin"><div class="sec-inner">
+      <p class="sentence" data-sentence="If AI can build anything, clarity is what builds success."></p>
+    </div></div>
+  </section>`;
 
 const BODY_HTML = `
   <div id="hero-pin">
@@ -21,9 +35,7 @@ const BODY_HTML = `
       </div>
       <!-- welcome: auto-reveals on load, scrolls up out of focus -->
       <div class="hero-welcome" data-reveal data-autoplay data-delay="1200">
-        <div class="sec-inner">
-          <p class="sentence" data-sentence="A clear vision for victory. If AI can build anything, clarity is what builds success"></p>
-        </div>
+        <div class="sec-inner">${HERO_COPY}</div>
       </div>
     </div>
   </div>
@@ -33,7 +45,7 @@ const BODY_HTML = `
 
   <div class="scroll-hint" id="hint">Scroll ↓</div>
 
-  <main id="content">${SECTIONS_HTML}</main>
+  <main id="content">${LINE2_SECTION}${SECTIONS_HTML}</main>
 
   <div id="variant-menu">${NAV}</div>
 
@@ -80,7 +92,7 @@ const src     = document.getElementById('glass-source');
 const src2    = document.getElementById('glass-source2');
 const VID_ASPECT = 832/464, VID_ASPECT2 = 640/608;
 
-let variant = +(document.body.dataset.variant) || 5;
+let variant = PAGE_V;
 
 let HALF_PASSES = 4;
 const MAX_FOLLOW = 0.35;
