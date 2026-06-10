@@ -33,12 +33,6 @@
 
   <div class="scroll-hint" id="hint">Scroll ↓</div>
 
-  <div id="variant-menu">
-    <a href="v1.html">1 · Feathered</a><a href="v2.html">2 · Liquid Glass</a><a href="v3.html">3 · Clear Glass</a>
-    <a href="v4.html">4 · Flat Glass</a><a href="v5.html">5 · Trigger</a><a href="v6.html">6 · Scrub</a>
-    <a href="v7.html">7 · Ribbons</a><a href="v8.html">8 · Podium</a><a href="v9.html" class="active">9 · Shards</a>
-  </div>
-
   <div id="controls">
     <div class="title-row"><span class="title">Conductor · Shards</span><button id="refreshBtn">↻ Refresh</button></div>
     <div class="ctrl"><div class="row"><span>Rise height</span><span class="val" id="rhVal">100%</span></div><input id="rhSlider" type="range" min="40" max="200" step="5" value="100" /></div>
@@ -52,8 +46,8 @@
 
   <script type="module">
     import * as THREE from 'three';
-    import { mountSections } from './sections.js';
-    mountSections();
+    import { mountSections, mountNav } from './sections.js';
+    mountSections(); mountNav('9');
 
     // ---------- copy reveal ----------
     document.querySelectorAll('#copy [data-sentence]').forEach(p => {
@@ -97,10 +91,11 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 
-    const H = 3.2;                       // resting shard height
-    const RISE_BASE = 3.0;               // how many extra heights a full rise adds
-    const Z0 = -3.6, ZSTEP = 1.7;        // depth rows
-    const XSTEP = 0.78;
+    const H = 8.0;                        // shard length — most of it hides below the frame
+    const BASE_Y = -6.5;                  // bases sunk well below the bottom edge
+    const RISE_BASE = 1.8;                // rise multiplier at 100%
+    const ARC = THREE.MathUtils.degToRad(140);   // amphitheater arc
+    const R0 = 5.0, RSTEP = 1.6;          // first-row radius + row spacing
 
     // glass cylinders
     const VERT = `
@@ -162,12 +157,14 @@
       targets = new Float32Array(count);
       let idx = 0;
       for (let r = 0; r < rows; r++){
+        const rad = R0 + r * RSTEP;
         for (let c = 0; c < cols; c++){
-          const jx = (Math.sin(idx * 12.9898) * 43758.5453 % 1) * 0.36 - 0.18;
-          const jz = (Math.sin(idx * 78.233)  * 12543.123  % 1) * 0.5  - 0.25;
-          const x = (c - (cols - 1) / 2) * XSTEP + jx;
-          const z = Z0 - r * ZSTEP + jz;
-          shards.push({ x, z, phase: Math.random() * Math.PI * 2 });
+          const f = cols === 1 ? 0.5 : c / (cols - 1);
+          const jt = ((Math.sin(idx * 12.9898) * 43758.5453) % 1) * 0.02 - 0.01;
+          const jr = ((Math.sin(idx * 78.233)  * 12543.123)  % 1) * 0.5  - 0.25;
+          const th = (f - 0.5) * ARC + jt;
+          const rr = rad + jr;
+          shards.push({ x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, phase: Math.random() * Math.PI * 2 });
           idx++;
         }
       }
@@ -180,7 +177,7 @@
       });
       mesh = new THREE.InstancedMesh(geo, mat, count);
       const m4 = new THREE.Matrix4();
-      shards.forEach((p, i) => { m4.makeTranslation(p.x, 0, p.z); mesh.setMatrixAt(i, m4); });
+      shards.forEach((p, i) => { m4.makeTranslation(p.x, BASE_Y, p.z); mesh.setMatrixAt(i, m4); });
       mesh.instanceMatrix.needsUpdate = true;
       scene.add(mesh);
     }
@@ -202,11 +199,10 @@
       ny = (e.clientY / innerHeight) * 2 - 1;
     }, { passive: true });
     function groundFromMouse(){
-      const width = (cfg.dn - 1) * XSTEP;
-      const x = nx * (width / 2) * 0.92;
-      const zFar = Z0 - (cfg.rw - 1) * ZSTEP;
-      const z = THREE.MathUtils.lerp(Z0, zFar, (1 - (ny + 1) / 2));   // top of screen = far rows
-      return { x, z };
+      const th = nx * (ARC / 2) * 0.92;
+      const rMax = R0 + (cfg.rw - 1) * RSTEP;
+      const rad = THREE.MathUtils.lerp(R0 - 0.6, rMax + 0.6, (1 - (ny + 1) / 2));   // top of screen = far rows
+      return { x: Math.sin(th) * rad, z: -Math.cos(th) * rad };
     }
 
     // ---------- scroll: swell + copy fade ----------
@@ -225,7 +221,7 @@
     const clock = new THREE.Clock();
     function tick(){
       const t = clock.getElapsedTime();
-      const mg = DEMO ? { x: 0, z: Z0 - 2 * ZSTEP } : groundFromMouse();
+      const mg = DEMO ? { x: 0, z: -(R0 + 2 * RSTEP) } : groundFromMouse();
       const reach = 1.7 * cfg.rc;
       const r2 = 2 * reach * reach;
       const riseSpd = 0.085 * cfg.rs;
@@ -234,7 +230,7 @@
       for (let i = 0; i < shards.length; i++){
         const p = shards[i];
         // gentle idle undulation so the field breathes
-        let target = 0.05 + 0.045 * Math.sin(p.x * 0.45 + t * 0.5 + p.phase) + scrollP * 0.12;
+        let target = 0.05 + 0.045 * Math.sin(p.th * 2.2 + t * 0.5 + p.phase) + scrollP * 0.12;
         // cursor lifts the shards
         const dx = p.x - mg.x, dz = p.z - mg.z;
         target += Math.exp(-(dx * dx + dz * dz) / r2);
@@ -248,8 +244,8 @@
       mesh.material.uniforms.uRiseScale.value = RISE_BASE * cfg.rh;
       mesh.material.uniforms.uGlow.value = cfg.gl * (1 + scrollP * 0.5);
 
-      camera.position.set(nx * 0.6, 5.0, 10);
-      camera.lookAt(0, 4.4, -6);
+      camera.position.set(nx * 0.7, 4.8, 9.0);
+      camera.lookAt(0, 3.2, -5);
 
       renderer.render(scene, camera);
       requestAnimationFrame(tick);

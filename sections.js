@@ -1,10 +1,22 @@
-// Shared content sections for the concept pages (v7+).
-// Injects the same scrolling content as v5/v6 (minus the hero welcome) and
-// wires scroll-triggered staggered reveals + drawing grid lines.
+// SINGLE SOURCE for the cross-page nav and the scrolling content sections.
+// app.js (v1-6) imports SECTIONS_HTML/navHTML; the concept pages (v7+) use
+// mountSections()/mountNav(), which also wire v5-style triggered reveals.
 
-const CONTENT_HTML = `
-  <div style="height:100vh"></div>
+export const NAV_ITEMS = [
+  ['1','Feathered'], ['2','Liquid Glass'], ['3','Clear Glass'], ['4','Flat Glass'],
+  ['5','Trigger'], ['6','Scrub'], ['7','Ribbons'], ['8','Podium'], ['9','Shards']
+];
+export function navHTML(active){
+  return NAV_ITEMS.map(([n, l]) =>
+    `<a class="navlink${active === n ? ' active' : ''}" href="v${n}.html" data-v="${n}">${n} · ${l}</a>`).join('');
+}
+export function mountNav(active){
+  let el = document.getElementById('variant-menu');
+  if (!el){ el = document.createElement('div'); el.id = 'variant-menu'; document.body.appendChild(el); }
+  el.innerHTML = navHTML(active);
+}
 
+export const SECTIONS_HTML = `
   <section class="scrub-sec sentence-sec">
     <div class="pin"><div class="sec-inner">
       <p class="sentence" data-sentence="RDA is an AI-first company — always in motion, always evolving to serve our clients."></p>
@@ -100,7 +112,7 @@ const CONTENT_HTML = `
 export function mountSections(){
   const main = document.createElement('main');
   main.id = 'content';
-  main.innerHTML = CONTENT_HTML;
+  main.innerHTML = `<div style="height:100vh"></div>` + SECTIONS_HTML;
   document.body.appendChild(main);
 
   // build sentences word-by-word

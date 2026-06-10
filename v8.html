@@ -33,12 +33,6 @@
 
   <div class="scroll-hint" id="hint">Scroll ↓</div>
 
-  <div id="variant-menu">
-    <a href="v1.html">1 · Feathered</a><a href="v2.html">2 · Liquid Glass</a><a href="v3.html">3 · Clear Glass</a>
-    <a href="v4.html">4 · Flat Glass</a><a href="v5.html">5 · Trigger</a><a href="v6.html">6 · Scrub</a>
-    <a href="v7.html">7 · Ribbons</a><a href="v8.html" class="active">8 · Podium</a><a href="v9.html">9 · Shards</a>
-  </div>
-
   <div id="controls">
     <div class="title-row"><span class="title">Conductor · Podium</span><button id="refreshBtn">↻ Refresh</button></div>
     <div class="ctrl"><div class="row"><span>Rows</span><span class="val" id="rwVal">5</span></div><input id="rwSlider" type="range" min="3" max="7" step="1" value="5" /></div>
@@ -52,8 +46,8 @@
   <script type="module">
     import * as THREE from 'three';
     import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-    import { mountSections } from './sections.js';
-    mountSections();
+    import { mountSections, mountNav } from './sections.js';
+    mountSections(); mountNav('8');
 
     // ---------- copy reveal ----------
     document.querySelectorAll('#copy [data-sentence]').forEach(p => {

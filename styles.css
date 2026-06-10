@@ -55,7 +55,8 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
 .hero-welcome { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; padding: 0 7vw; }
 .hero-welcome .sentence { text-align: center; max-width: none; }
 
-/* testimonials */
+/* testimonials — shorter sticky runway so they follow each other quickly (still pin briefly to be read) */
+.testimonial-sec { height: calc(var(--scrub-h) * 0.8); }
 .testimonial-sec .quote { font-size: clamp(30px, 5.2vw, 74px); max-width: 18ch; }
 .attrib { margin-top: 30px; font-size: 15px; letter-spacing: 0.04em; color: rgba(255,255,255,0.55); }
 
@@ -64,8 +65,7 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
 .logo-wall { position: relative; width: 100%; }
 .logo-grid { display: grid; grid-template-columns: repeat(5, 1fr); width: 100%; }
 .logo-cell { display: flex; align-items: center; justify-content: center; height: 168px; }
-.logo-cell img { height: 54px; width: auto; max-width: 76%; opacity: 0.82; transition: opacity .25s; }
-.logo-cell:hover img { opacity: 1; }
+.logo-cell img { height: 54px; width: auto; max-width: 76%; filter: drop-shadow(0 0 40px #000000); }
 /* grid lines that draw in (scale) with the logo reveal */
 .grid-lines span { position: absolute; background: rgba(255,255,255,0.16); pointer-events: none; }
 .grid-lines .hline { left: 0; width: 100%; height: 1px; transform: scaleX(0); transform-origin: left center; transition: transform var(--rv-dur) var(--rv-ease); }

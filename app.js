@@ -1,13 +1,10 @@
 import * as THREE from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { SECTIONS_HTML, navHTML } from './sections.js';
 
 // ====================== shared page markup (one source for every version) ======================
-const NAV = [
-  ['1','Feathered'], ['2','Liquid Glass'], ['3','Clear Glass'],
-  ['4','Flat Glass'], ['5','Trigger'], ['6','Scrub'],
-  ['7','Ribbons'], ['8','Podium'], ['9','Shards']
-].map(([n,label]) => `<a class="navlink" href="v${n}.html" data-v="${n}">${n} · ${label}</a>`).join('');
+const NAV = navHTML('');   // active link set by applyVariant
 
 const BODY_HTML = `
   <div id="hero-pin">
@@ -34,98 +31,7 @@ const BODY_HTML = `
 
   <div class="scroll-hint" id="hint">Scroll ↓</div>
 
-  <main id="content">
-    <section id="s-sentence" class="scrub-sec sentence-sec">
-      <div class="pin"><div class="sec-inner">
-        <p class="sentence" data-sentence="RDA is an AI-first company — always in motion, always evolving to serve our clients."></p>
-      </div></div>
-    </section>
-
-    <section id="s-logos" class="scrub-sec logos-sec">
-      <div class="pin"><div class="sec-inner">
-        <div class="sec-eyebrow reveal">Partners who trust us</div>
-        <div class="logo-wall">
-          <div class="grid-lines">
-            <span class="hline" style="top:0%"></span><span class="hline" style="top:50%"></span><span class="hline" style="top:100%"></span>
-            <span class="vline" style="left:0%"></span><span class="vline" style="left:20%"></span><span class="vline" style="left:40%"></span>
-            <span class="vline" style="left:60%"></span><span class="vline" style="left:80%"></span><span class="vline" style="left:100%"></span>
-          </div>
-          <div class="logo-grid">
-            <div class="logo-cell reveal"><img src="media/logos/anthropic.svg" alt="Anthropic"></div>
-            <div class="logo-cell reveal"><img src="media/logos/figma.svg" alt="Figma"></div>
-            <div class="logo-cell reveal"><img src="media/logos/microsoft.svg" alt="Microsoft"></div>
-            <div class="logo-cell reveal"><img src="media/logos/salesforce.svg" alt="Salesforce"></div>
-            <div class="logo-cell reveal"><img src="media/logos/amazonwebservices.svg" alt="AWS"></div>
-            <div class="logo-cell reveal"><img src="media/logos/storyblok.svg" alt="Storyblok"></div>
-            <div class="logo-cell reveal"><img src="media/logos/sitecore.svg" alt="Sitecore"></div>
-            <div class="logo-cell reveal"><img src="media/logos/shopify.svg" alt="Shopify"></div>
-            <div class="logo-cell reveal"><img src="media/logos/algolia.svg" alt="Algolia"></div>
-            <div class="logo-cell reveal"><img src="media/logos/vercel.svg" alt="Vercel"></div>
-          </div>
-        </div>
-      </div></div>
-    </section>
-
-    <section id="s-services" class="scrub-sec services-sec">
-      <div class="pin"><div class="sec-inner">
-        <h2 class="services-head reveal">What we do</h2>
-        <p class="services-sub reveal">AI, strategy, and execution — from day one.</p>
-        <div class="service-grid">
-          <div class="glass-card reveal"><div class="num">01</div><h3>Strategic Vision &amp; Roadmapping</h3></div>
-          <div class="glass-card reveal"><div class="num">02</div><h3>Experience Design &amp; Personalization</h3></div>
-          <div class="glass-card reveal"><div class="num">03</div><h3>Platform Selection &amp; Implementation</h3></div>
-          <div class="glass-card reveal"><div class="num">04</div><h3>Custom App Development &amp; Modernization</h3></div>
-          <div class="glass-card reveal"><div class="num">05</div><h3>Data &amp; AI Optimization</h3></div>
-          <div class="glass-card reveal"><div class="num">06</div><h3>Continuous Evolution Programs</h3></div>
-        </div>
-      </div></div>
-    </section>
-
-    <section class="scrub-sec testimonial-sec">
-      <div class="pin"><div class="sec-inner">
-        <p class="sentence quote" data-sentence="“RDA rebuilt our platform — and our growth followed.”"></p>
-        <div class="attrib reveal">VP, Digital · Global Retail</div>
-      </div></div>
-    </section>
-    <section class="scrub-sec testimonial-sec">
-      <div class="pin"><div class="sec-inner">
-        <p class="sentence quote" data-sentence="“They move faster than any partner we've worked with.”"></p>
-        <div class="attrib reveal">CTO · Fintech</div>
-      </div></div>
-    </section>
-    <section class="scrub-sec testimonial-sec">
-      <div class="pin"><div class="sec-inner">
-        <p class="sentence quote" data-sentence="“Strategy, design, and engineering — finally one team.”"></p>
-        <div class="attrib reveal">CMO · Enterprise SaaS</div>
-      </div></div>
-    </section>
-
-    <section id="s-schedule" class="scrub-sec schedule-sec">
-      <div class="pin center"><div class="schedule-inner">
-        <h2 class="schedule-head reveal">Schedule a time to talk</h2>
-        <p class="schedule-sub reveal">Pick a slot — we'll confirm by email.</p>
-        <div class="cal-card reveal">
-          <div>
-            <div class="cal-badge"><span class="d"></span> Live scheduler · HubSpot (placeholder)</div>
-            <div class="cal-month"><span>June 2026</span><span style="color:rgba(255,255,255,.4)">&lsaquo;&nbsp;&nbsp;&rsaquo;</span></div>
-            <div class="cal-grid">
-              <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div><div class="dow">S</div>
-              <div class="day muted">26</div><div class="day muted">27</div><div class="day muted">28</div><div class="day muted">29</div><div class="day muted">30</div><div class="day muted">31</div><div class="day">1</div>
-              <div class="day">2</div><div class="day avail">3</div><div class="day">4</div><div class="day avail">5</div><div class="day">6</div><div class="day muted">7</div><div class="day muted">8</div>
-              <div class="day avail">9</div><div class="day sel">10</div><div class="day avail">11</div><div class="day avail">12</div><div class="day">13</div><div class="day muted">14</div><div class="day muted">15</div>
-              <div class="day avail">16</div><div class="day">17</div><div class="day avail">18</div><div class="day avail">19</div><div class="day avail">20</div><div class="day muted">21</div><div class="day muted">22</div>
-            </div>
-          </div>
-          <div class="cal-times">
-            <div class="tlabel">Tue, June 10 · EST</div>
-            <div class="cal-slot">9:00 AM</div><div class="cal-slot">9:30 AM</div><div class="cal-slot">10:30 AM</div>
-            <div class="cal-slot">1:00 PM</div><div class="cal-slot">2:30 PM</div>
-            <div class="cal-foot">Connects to HubSpot Meetings once linked.</div>
-          </div>
-        </div>
-      </div></div>
-    </section>
-  </main>
+  <main id="content">${SECTIONS_HTML}</main>
 
   <div id="variant-menu">${NAV}</div>
 
@@ -133,7 +39,10 @@ const BODY_HTML = `
     <div class="title-row"><span class="title">Hero Sandbox</span><button id="refreshBtn">↻ Refresh</button></div>
     <div class="ctrl"><div class="row"><span>Background size</span><span class="val" id="szVal">100%</span></div><input id="szSlider" type="range" min="60" max="180" step="1" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Logo size</span><span class="val" id="lgVal">160%</span></div><input id="lgSlider" type="range" min="60" max="220" step="1" value="160" /></div>
-    <div class="ctrl"><div class="row"><span>Mouse follow</span><span class="val" id="mfVal">25%</span></div><input id="mfSlider" type="range" min="0" max="300" value="25" /></div>
+    <div class="ctrl"><div class="row"><span>Bg follow dist</span><span class="val" id="bdVal">100%</span></div><input id="bdSlider" type="range" min="0" max="300" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Bg follow speed</span><span class="val" id="bsVal">100%</span></div><input id="bsSlider" type="range" min="5" max="300" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Logo follow dist</span><span class="val" id="ldVal">40%</span></div><input id="ldSlider" type="range" min="0" max="300" value="40" /></div>
+    <div class="ctrl"><div class="row"><span>Logo follow speed</span><span class="val" id="lsVal">100%</span></div><input id="lsSlider" type="range" min="5" max="300" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Scroll sensitivity</span><span class="val" id="ssVal">4</span></div><input id="ssSlider" type="range" min="1" max="40" step="1" value="4" /></div>
     <div class="divider">Reveal animation</div>
     <div class="ctrl"><div class="row"><span>Trigger position</span><span class="val" id="trVal">20%</span></div><input id="trSlider" type="range" min="0" max="90" step="1" value="20" /></div>
@@ -170,7 +79,8 @@ let variant = +(document.body.dataset.variant) || 5;
 
 let HALF_PASSES = 4;
 const MAX_FOLLOW = 0.35;
-let FOLLOW = 0.25 * MAX_FOLLOW, followNorm = 0.25;
+let FOLLOW = 1.0 * MAX_FOLLOW, followNorm = 1.0;
+let bgDist = 1.0, bgSpd = 1.0, lgDistF = 0.4, lgSpdF = 1.0;   // follow distance/speed (bg + glass logo)
 let sizeBg = 1.0, sizeLogo = 1.6;
 const SCRUB_EASE = 0.12, FOLLOW_EASE = 0.08, FOLLOW_EASE_SLOW = 0.018;
 
@@ -273,12 +183,21 @@ function layoutGL(){
 }
 
 // ====================== main loop ======================
+let lastVT = 0, lastAdvance = 0;
 function tick(now){
   prevNow = now;
   if (variant >= 4){
     scrollVel *= 0.92;
     if (src2.paused) src2.play().catch(()=>{});
-    src2.playbackRate = Math.min(0.5 + scrollVel * HALF_PASSES * 0.001, 20);
+    // cap the boost — extreme playbackRates stall the decoder (the "freeze" bug)
+    src2.playbackRate = Math.min(0.5 + scrollVel * HALF_PASSES * 0.0004, 4);
+    // stall watchdog: if frames stop advancing while playing, kick the decoder
+    if (src2.currentTime !== lastVT){ lastVT = src2.currentTime; lastAdvance = now; }
+    else if (!src2.paused && now - lastAdvance > 1200){
+      lastAdvance = now;
+      try { src2.currentTime = (src2.currentTime + 0.05) % (src2.duration || 1); } catch(e){}
+      src2.play().catch(()=>{});
+    }
   } else if (ready){
     const dur = activeDuration();
     if (dur){
@@ -306,12 +225,16 @@ function tick(now){
     } else {
       gl.logo.rotation.x += (0 - gl.logo.rotation.x)*0.1;
       gl.logo.rotation.y += (0 - gl.logo.rotation.y)*0.1;
-      gl.grp.position.x += (0 - gl.grp.position.x)*0.1;
-      gl.grp.position.y += (0 - gl.grp.position.y)*0.1;
-      // larger travel distance, but a slow lazy catch-up (the ease below stays slow)
-      tcx = 0.5 + nx*0.22*followNorm; tcy = 0.5 - ny*0.22*followNorm;
+      // glass logo drifts toward the mouse with its own distance + speed
+      const vis = visibleAt(0);
+      const ldx = nx * vis.w * 0.10 * lgDistF, ldy = -ny * vis.h * 0.10 * lgDistF;
+      const le = 0.03 * lgSpdF;
+      gl.grp.position.x += (ldx - gl.grp.position.x) * le;
+      gl.grp.position.y += (ldy - gl.grp.position.y) * le;
+      // background travel distance is independent of its speed
+      tcx = 0.5 + nx*0.22*bgDist; tcy = 0.5 - ny*0.22*bgDist;
     }
-    const fe = variant >= 4 ? FOLLOW_EASE_SLOW : 0.07;
+    const fe = (variant >= 4 ? FOLLOW_EASE_SLOW : 0.07) * (variant >= 3 ? bgSpd : 1);
     u.uCenter.value.x += (tcx - u.uCenter.value.x) * fe;
     u.uCenter.value.y += (tcy - u.uCenter.value.y) * fe;
     gl.renderer.render(gl.scene, gl.camera);
@@ -351,7 +274,7 @@ src2.addEventListener('loadedmetadata', () => { computeTarget(); prime(); });
 window.addEventListener('touchstart', prime, { once:true, passive:true });
 window.addEventListener('click', prime, { once:true });
 // resume the background video whenever the tab/window comes back into focus
-function resumeVideo(){ if (variant >= 4 && src2.paused) src2.play().catch(()=>{}); }
+function resumeVideo(){ scrollVel = 0; if (variant >= 4 && src2.paused) src2.play().catch(()=>{}); }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeVideo(); });
 window.addEventListener('focus', resumeVideo);
 window.addEventListener('pageshow', resumeVideo);
@@ -436,13 +359,20 @@ function initContent(){
 
 // ====================== controls ======================
 const szS = document.getElementById('szSlider'), lgS = document.getElementById('lgSlider'),
-      mfS = document.getElementById('mfSlider'), ssS = document.getElementById('ssSlider');
+      ssS = document.getElementById('ssSlider');
 const szV = document.getElementById('szVal'), lgV = document.getElementById('lgVal'),
-      mfV = document.getElementById('mfVal'), ssV = document.getElementById('ssVal');
+      ssV = document.getElementById('ssVal');
+const bdS = document.getElementById('bdSlider'), bsS = document.getElementById('bsSlider'),
+      ldS = document.getElementById('ldSlider'), lsS = document.getElementById('lsSlider');
+const bdV = document.getElementById('bdVal'), bsV = document.getElementById('bsVal'),
+      ldV = document.getElementById('ldVal'), lsV = document.getElementById('lsVal');
 szS.addEventListener('input', () => { sizeBg = +szS.value/100; szV.textContent = szS.value+'%'; if (gl.ready) layoutGL(); });
 lgS.addEventListener('input', () => { sizeLogo = +lgS.value/100; lgV.textContent = lgS.value+'%'; if (gl.ready) layoutGL(); });
-mfS.addEventListener('input', () => { const pct=+mfS.value; mfV.textContent=pct+'%'; FOLLOW=(pct/100)*MAX_FOLLOW; followNorm=pct/100; });
 ssS.addEventListener('input', () => { HALF_PASSES=+ssS.value; ssV.textContent=ssS.value; computeTarget(); });
+bdS.addEventListener('input', () => { bgDist = +bdS.value/100; bdV.textContent = bdS.value+'%'; FOLLOW = bgDist*MAX_FOLLOW; followNorm = bgDist; });
+bsS.addEventListener('input', () => { bgSpd = +bsS.value/100; bsV.textContent = bsS.value+'%'; });
+ldS.addEventListener('input', () => { lgDistF = +ldS.value/100; ldV.textContent = ldS.value+'%'; });
+lsS.addEventListener('input', () => { lgSpdF = +lsS.value/100; lsV.textContent = lsS.value+'%'; });
 
 const trS = document.getElementById('trSlider'), tmS = document.getElementById('tmSlider'),
       stS = document.getElementById('stSlider'), esS = document.getElementById('esSelect');
@@ -455,16 +385,15 @@ esS.addEventListener('change', () => { revEase = EASE[esS.value] || EASE.expo; d
 const skS = document.getElementById('skSlider'), skV = document.getElementById('skVal');
 skS.addEventListener('input', () => { skV.textContent = skS.value + '%'; document.documentElement.style.setProperty('--scrub-h', skS.value + 'vh'); updateReveals(); });
 
-function applyPreset({bg, logo, mf, ss}){
-  szS.value = bg;  szS.dispatchEvent(new Event('input'));
-  lgS.value = logo; lgS.dispatchEvent(new Event('input'));
-  mfS.value = mf;  mfS.dispatchEvent(new Event('input'));
-  ssS.value = ss;  ssS.dispatchEvent(new Event('input'));
+function applyPreset({bg, logo, ss, bd, bs, ld, ls}){
+  const set = (s, v) => { s.value = v; s.dispatchEvent(new Event('input')); };
+  set(szS, bg); set(lgS, logo); set(ssS, ss);
+  set(bdS, bd); set(bsS, bs); set(ldS, ld); set(lsS, ls);
 }
 
 // persist control values across reloads so Refresh replays the page without resetting them
 const CTRL_KEY = 'rda_ctrls_v1';
-const ALL_SLIDERS = [szS, lgS, mfS, ssS, trS, tmS, stS, skS];
+const ALL_SLIDERS = [szS, lgS, bdS, bsS, ldS, lsS, ssS, trS, tmS, stS, skS];
 let suppressPersist = true;
 function persist(){
   if (suppressPersist) return;
@@ -486,7 +415,7 @@ function applyVariant(v){
   variant = v;
   [1,2,3,4,5,6].forEach(n => document.body.classList.toggle('v'+n, variant === n));
   document.querySelectorAll('#variant-menu a').forEach(a => a.classList.toggle('active', +a.dataset.v === variant));
-  if (variant >= 5) applyPreset({ bg:100, logo:97, mf:100, ss:12 });
+  if (variant >= 5) applyPreset({ bg:100, logo:97, ss:12, bd:160, bs:45, ld:50, ls:45 });
   document.body.classList.toggle('scrubmode', variant === 6);
   resetReveals(); updateReveals();
   if (gl.ready){
