@@ -225,8 +225,12 @@ function tick(now){
       gl.grp.position.y += (dy - gl.grp.position.y)*0.07;
       tcx = 0.5 + nx*0.03*followNorm; tcy = 0.5 - ny*0.03*followNorm;
     } else {
-      gl.logo.rotation.x += (0 - gl.logo.rotation.x)*0.1;
-      gl.logo.rotation.y += (0 - gl.logo.rotation.y)*0.1;
+      // v10: the flat logo turns gently in space toward the cursor; other variants stay locked
+      const tY = variant === 10 ? nx * 0.22 : 0;
+      const tX = variant === 10 ? ny * 0.15 : 0;
+      const te = variant === 10 ? 0.04 : 0.1;
+      gl.logo.rotation.x += (tX - gl.logo.rotation.x) * te;
+      gl.logo.rotation.y += (tY - gl.logo.rotation.y) * te;
       // glass logo drifts toward the mouse with its own distance + speed
       const vis = visibleAt(0);
       const ldx = nx * vis.w * 0.10 * lgDistF, ldy = -ny * vis.h * 0.10 * lgDistF;
@@ -415,7 +419,7 @@ document.getElementById('refreshBtn').addEventListener('click', () => location.r
 // ====================== apply a fixed variant (one per page) ======================
 function applyVariant(v){
   variant = v;
-  [1,2,3,4,5,6].forEach(n => document.body.classList.toggle('v'+n, variant === n));
+  [1,2,3,4,5,6,10].forEach(n => document.body.classList.toggle('v'+n, variant === n));
   document.querySelectorAll('#variant-menu a').forEach(a => a.classList.toggle('active', +a.dataset.v === variant));
   const dropBtn = document.querySelector('#variant-menu .drop-btn');
   if (dropBtn) dropBtn.classList.toggle('active', !!document.querySelector(`#variant-menu .drop-list a[data-v="${variant}"]`));
