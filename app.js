@@ -21,8 +21,9 @@ const BODY_HTML = `
       </div>
       <!-- welcome: auto-reveals on load, scrolls up out of focus -->
       <div class="hero-welcome" data-reveal data-autoplay data-delay="1200">
-        <p class="sentence" data-sentence="A clear vision for victory."></p>
-        <p class="sentence sub-big" data-sentence="If AI can build anything, clarity is what builds success"></p>
+        <div class="sec-inner">
+          <p class="sentence" data-sentence="A clear vision for victory. If AI can build anything, clarity is what builds success"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -44,6 +45,8 @@ const BODY_HTML = `
     <div class="ctrl"><div class="row"><span>Bg follow speed</span><span class="val" id="bsVal">100%</span></div><input id="bsSlider" type="range" min="5" max="300" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Logo follow dist</span><span class="val" id="ldVal">40%</span></div><input id="ldSlider" type="range" min="0" max="300" value="40" /></div>
     <div class="ctrl"><div class="row"><span>Logo follow speed</span><span class="val" id="lsVal">100%</span></div><input id="lsSlider" type="range" min="5" max="300" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Logo tilt</span><span class="val" id="tlVal">100%</span></div><input id="tlSlider" type="range" min="0" max="300" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Tilt speed</span><span class="val" id="tsVal">100%</span></div><input id="tsSlider" type="range" min="5" max="300" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Scroll sensitivity</span><span class="val" id="ssVal">4</span></div><input id="ssSlider" type="range" min="1" max="40" step="1" value="4" /></div>
     <div class="divider">Reveal animation</div>
     <div class="ctrl"><div class="row"><span>Trigger position</span><span class="val" id="trVal">20%</span></div><input id="trSlider" type="range" min="0" max="90" step="1" value="20" /></div>
@@ -83,6 +86,7 @@ let HALF_PASSES = 4;
 const MAX_FOLLOW = 0.35;
 let FOLLOW = 1.0 * MAX_FOLLOW, followNorm = 1.0;
 let bgDist = 1.0, bgSpd = 1.0, lgDistF = 0.4, lgSpdF = 1.0;   // follow distance/speed (bg + glass logo)
+let tiltAmt = 1.0, tiltSpd = 1.0;                             // v10 logo tilt amount/speed
 let sizeBg = 1.0, sizeLogo = 1.6;
 const SCRUB_EASE = 0.12, FOLLOW_EASE = 0.08, FOLLOW_EASE_SLOW = 0.018;
 
@@ -139,7 +143,8 @@ function initGL(){
         }`
     });
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(1,1), planeMat);
-    plane.position.z = -2; scene.add(plane);
+    plane.position.z = -120;   // far behind the logo so tilting never dips the glass behind it
+    scene.add(plane);
 
     const matLit = new THREE.MeshPhysicalMaterial({ color:0xffffff, metalness:0, roughness:0.07, transmission:1, thickness:42, ior:1.5, clearcoat:1, clearcoatRoughness:0.12, envMapIntensity:1.4, specularIntensity:1, attenuationColor:new THREE.Color(0xffffff), attenuationDistance:4 });
     const matClear = new THREE.MeshPhysicalMaterial({ color:0xffffff, metalness:0, roughness:0, transmission:1, thickness:78, ior:1.5, clearcoat:0, specularIntensity:0, envMapIntensity:0, attenuationColor:new THREE.Color(0xffffff), attenuationDistance:8 });
@@ -226,9 +231,9 @@ function tick(now){
       tcx = 0.5 + nx*0.03*followNorm; tcy = 0.5 - ny*0.03*followNorm;
     } else {
       // v10: the flat logo turns gently in space toward the cursor; other variants stay locked
-      const tY = variant === 10 ? nx * 0.22 : 0;
-      const tX = variant === 10 ? ny * 0.15 : 0;
-      const te = variant === 10 ? 0.04 : 0.1;
+      const tY = variant === 10 ? nx * 0.22 * tiltAmt : 0;
+      const tX = variant === 10 ? ny * 0.15 * tiltAmt : 0;
+      const te = variant === 10 ? 0.04 * tiltSpd : 0.1;
       gl.logo.rotation.x += (tX - gl.logo.rotation.x) * te;
       gl.logo.rotation.y += (tY - gl.logo.rotation.y) * te;
       // glass logo drifts toward the mouse with its own distance + speed
@@ -379,6 +384,10 @@ bdS.addEventListener('input', () => { bgDist = +bdS.value/100; bdV.textContent =
 bsS.addEventListener('input', () => { bgSpd = +bsS.value/100; bsV.textContent = bsS.value+'%'; });
 ldS.addEventListener('input', () => { lgDistF = +ldS.value/100; ldV.textContent = ldS.value+'%'; });
 lsS.addEventListener('input', () => { lgSpdF = +lsS.value/100; lsV.textContent = lsS.value+'%'; });
+const tlS = document.getElementById('tlSlider'), tsS = document.getElementById('tsSlider');
+const tlV = document.getElementById('tlVal'), tsV = document.getElementById('tsVal');
+tlS.addEventListener('input', () => { tiltAmt = +tlS.value/100; tlV.textContent = tlS.value+'%'; });
+tsS.addEventListener('input', () => { tiltSpd = +tsS.value/100; tsV.textContent = tsS.value+'%'; });
 
 const trS = document.getElementById('trSlider'), tmS = document.getElementById('tmSlider'),
       stS = document.getElementById('stSlider'), esS = document.getElementById('esSelect');
@@ -399,7 +408,7 @@ function applyPreset({bg, logo, ss, bd, bs, ld, ls}){
 
 // persist control values across reloads so Refresh replays the page without resetting them
 const CTRL_KEY = 'rda_ctrls_v1';
-const ALL_SLIDERS = [szS, lgS, bdS, bsS, ldS, lsS, ssS, trS, tmS, stS, skS];
+const ALL_SLIDERS = [szS, lgS, bdS, bsS, ldS, lsS, tlS, tsS, ssS, trS, tmS, stS, skS];
 let suppressPersist = true;
 function persist(){
   if (suppressPersist) return;

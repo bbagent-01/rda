@@ -51,11 +51,9 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
   text-shadow: 0 0 40px #000000; }
 .sentence .word { display: inline-block; }
 
-/* hero welcome — auto-reveals on load, scrolls up out of focus */
-.hero-welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5; pointer-events: none; padding: 0 7vw; text-align: center; }
-.hero-welcome .sentence { text-align: center; max-width: none; }
-.hero-welcome .sub { margin-top: 26px; font-size: clamp(15px, 1.6vw, 21px); font-weight: 500; color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
-.hero-welcome .sub-big { margin-top: 30px; font-size: clamp(26px, 4.2vw, 62px); color: rgba(255,255,255,0.88); max-width: 20ch; }
+/* hero welcome — auto-reveals on load, scrolls up out of focus.
+   One heading, identical layout/style to the body sentence sections. */
+.hero-welcome { position: absolute; inset: 0; display: flex; align-items: center; z-index: 5; pointer-events: none; padding: 14vh 7vw; }
 
 /* testimonials — separate sticky sections, tight scroll distance between them */
 .testimonial-sec { height: calc(var(--scrub-h) * 0.72); }
