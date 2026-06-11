@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>RDA Digital — Hero Sandbox (v12 · Iris+)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { overflow-x: hidden; }
+    #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+    #vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(125% 100% at 50% 30%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%); }
+    .hero-copy { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 0 7vw 12vh; pointer-events: none; }
+    .hero-copy .sentence { text-align: center; max-width: 14ch; font-size: clamp(36px, 5.6vw, 84px); }
+    .hero-copy .sub { margin-top: 22px; font-size: clamp(15px, 1.5vw, 20px); font-weight: 500;
+      color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
+  </script>
+</head>
+<body class="v12">
+
+  <canvas id="fx"></canvas>
+  <div id="vignette"></div>
+
+  <div class="hero-copy" id="copy">
+    <p class="sentence" data-sentence="Victory Never Sounded So Good."></p>
+    <p class="sub reveal">AI can play every instrument. Great leaders ensure the entire orchestra performs in harmony.</p>
+  </div>
+
+  <div class="scroll-hint" id="hint">Scroll ↓</div>
+
+  <div id="controls">
+    <div class="title-row"><span class="title">Conductor · Iris+</span><button id="refreshBtn">↻ Refresh</button></div>
+    <div class="ctrl"><div class="row"><span>Rise height</span><span class="val" id="rhVal">100%</span></div><input id="rhSlider" type="range" min="40" max="200" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Reach</span><span class="val" id="rcVal">100%</span></div><input id="rcSlider" type="range" min="40" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Rise speed</span><span class="val" id="rsVal">100%</span></div><input id="rsSlider" type="range" min="20" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Fall speed</span><span class="val" id="fsVal">100%</span></div><input id="fsSlider" type="range" min="20" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="30" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Mouse growth</span><span class="val" id="mgVal">130%</span></div><input id="mgSlider" type="range" min="0" max="300" step="5" value="130" /></div>
+    <div class="ctrl"><div class="row"><span>Density</span><span class="val" id="dnVal">52</span></div><input id="dnSlider" type="range" min="20" max="80" step="1" value="52" /></div>
+    <div class="ctrl"><div class="row"><span>Rows</span><span class="val" id="rwVal">6</span></div><input id="rwSlider" type="range" min="4" max="9" step="1" value="6" /></div>
+    <div class="ctrl"><div class="row"><span>Start position</span><span class="val" id="spVal">-2.0</span></div><input id="spSlider" type="range" min="-60" max="10" step="1" value="-20" /></div>
+    <div class="ctrl"><div class="row"><span>Scene size</span><span class="val" id="szVal">100%</span></div><input id="szSlider" type="range" min="20" max="140" step="1" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Iris size</span><span class="val" id="isVal">100%</span></div><input id="isSlider" type="range" min="30" max="200" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Iris spin</span><span class="val" id="ipVal">100%</span></div><input id="ipSlider" type="range" min="0" max="300" step="5" value="100" /></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { mountSections, mountNav } from './sections.js';
+    mountSections(); mountNav('12');
+
+    // ---------- copy reveal ----------
+    document.querySelectorAll('#copy [data-sentence]').forEach(p => {
+      p.dataset.sentence.split(/\s+/).forEach(w => {
+        const s = document.createElement('span');
+        s.className = 'word reveal'; s.textContent = w;
+        p.appendChild(s); p.appendChild(document.createTextNode(' '));
+      });
+    });
+    const revealItems = [...document.querySelectorAll('#copy .reveal')];
+    revealItems.forEach((el, i) => el.style.transitionDelay = (i * 70) + 'ms');
+    setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
+
+    // ---------- controls ----------
+    const $ = id => document.getElementById(id);
+    const sliders = { rh:$('rhSlider'), rc:$('rcSlider'), rs:$('rsSlider'), fs:$('fsSlider'), gl:$('glSlider'), mg:$('mgSlider'), dn:$('dnSlider'), rw:$('rwSlider'), sp:$('spSlider'), sz:$('szSlider'), is:$('isSlider'), ip:$('ipSlider') };
+    const vals    = { rh:$('rhVal'),    rc:$('rcVal'),    rs:$('rsVal'),    fs:$('fsVal'),    gl:$('glVal'),    mg:$('mgVal'),    dn:$('dnVal'),    rw:$('rwVal'),    sp:$('spVal'),    sz:$('szVal'),    is:$('isVal'),    ip:$('ipVal') };
+    const cfg = { rh:1, rc:1, rs:1, fs:1, gl:1, mg:1.3, dn:52, rw:6, sp:-2.0, sz:1, is:1, ip:1 };
+    const fmt = { rh:v=>v+'%', rc:v=>v+'%', rs:v=>v+'%', fs:v=>v+'%', gl:v=>v+'%', mg:v=>v+'%', dn:v=>v, rw:v=>v, sp:v=>(v/10).toFixed(1), sz:v=>v+'%', is:v=>v+'%', ip:v=>v+'%' };
+    const scale = { rh:v=>v/100, rc:v=>v/100, rs:v=>v/100, fs:v=>v/100, gl:v=>v/100, mg:v=>v/100, dn:v=>+v, rw:v=>+v, sp:v=>v/10, sz:v=>v/100, is:v=>v/100, ip:v=>v/100 };
+
+    // fresh key so v12 starts from its own (denser, longer, bigger-iris) defaults
+    const KEY = 'rda_v12_ctrls1';
+    let suppress = true;
+    function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
+    Object.keys(sliders).forEach(k => {
+      sliders[k].addEventListener('input', () => {
+        cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
+        if (k === 'dn' || k === 'rw') rebuild();
+        persist();
+      });
+    });
+    // overlay only v12's own saved settings (no inheritance from older versions)
+    try {
+      const o = JSON.parse(localStorage.getItem(KEY)) || null;
+      if (o) Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } });
+    } catch(e){}
+    suppress = false;
+    $('refreshBtn').addEventListener('click', () => location.reload());
+
+    // ---------- scene ----------
+    const canvas = $('fx');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 1);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+
+    const H = 10.0;                 // shards are longer in v12
+    const BASE_Y = -6.5;
+    const RISE_BASE = 1.8;
+    const ARC = THREE.MathUtils.degToRad(165);
+    const R0 = 5.0, RSTEP = 1.6;
+    const TIER = 0.85;
+    const MAX_SHARDS = 560;         // hard cap so the per-frame proximity loop stays at 60fps
+
+    const VERT = `
+      uniform float uRiseScale; uniform float uH;
+      attribute float aRise; attribute float aHue;
+      varying float vRise; varying float vHue; varying float vH; varying vec3 vN; varying vec3 vV;
+      void main(){
+        vRise = aRise; vHue = aHue;
+        vH = position.y / uH;
+        vec3 pos = position;
+        pos.y *= 1.0 + aRise * uRiseScale;
+        vec4 wp = vec4(pos, 1.0);
+        #ifdef USE_INSTANCING
+          wp = instanceMatrix * wp;
+        #endif
+        vec4 mv = modelViewMatrix * wp;
+        vN = normalMatrix * normal;
+        vV = -mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }`;
+    // jewel-glass palette: ONE shared ramp, sampled by each shard's LENGTH (aHue carries the
+    // normalised length, short -> crimson end, long -> indigo end). No per-shard hue cycling and
+    // no time drift -> the colour is consistent across every shard, with a gentle gradient run
+    // length-wise along each shard + a bright glassy rim.
+    const FRAG = `
+      uniform float uGlow;
+      varying float vRise; varying float vHue; varying float vH; varying vec3 vN; varying vec3 vV;
+      vec3 pal(float t){
+        t = clamp(t, 0.0, 1.0);
+        vec3 c0 = vec3(0.62, 0.04, 0.12);   // crimson  (short shards)
+        vec3 c1 = vec3(1.00, 0.42, 0.06);   // amber
+        vec3 c2 = vec3(0.93, 0.10, 0.55);   // magenta
+        vec3 c3 = vec3(0.52, 0.10, 0.95);   // violet
+        vec3 c4 = vec3(0.16, 0.22, 0.95);   // indigo   (long shards)
+        float s = t * 4.0;
+        if (s < 1.0) return mix(c0, c1, s);
+        if (s < 2.0) return mix(c1, c2, s - 1.0);
+        if (s < 3.0) return mix(c2, c3, s - 2.0);
+        return mix(c3, c4, s - 3.0);
+      }
+      void main(){
+        vec3 n = normalize(vN); vec3 v = normalize(vV);
+        float fres = pow(1.0 - abs(dot(n, v)), 2.0);
+        float t = clamp(vRise, 0.0, 1.0);
+        // hue is purely a function of shard length (vHue), with a small length-wise gradient
+        float hue = vHue;
+        vec3 c = mix(pal(hue), pal(hue + 0.10), vH);
+        c = mix(c, vec3(1.0, 0.55, 0.92), smoothstep(0.45, 1.0, t) * 0.45);
+        float inten = (0.5 + pow(t, 1.4) * 1.15) * uGlow;
+        vec3 col = c * inten * (0.45 + 0.55 * vH);
+        col += c * fres * (0.9 + t * 0.9);
+        col += vec3(1.0) * pow(fres, 3.0) * 0.35;
+        gl_FragColor = vec4(col, 0.96);
+      }`;
+
+    let mesh = null, grp = null, shards = [], riseAttr = null, riseArr = null, rises = null, grow = null;
+
+    function rebuild(){
+      if (mesh){ scene.remove(grp); mesh.geometry.dispose(); mesh.material.dispose(); }
+      shards = [];
+      const rows = cfg.rw, cols = cfg.dn;
+      let count = rows * cols;
+      if (count > MAX_SHARDS) count = MAX_SHARDS;   // keep the frame budget bounded
+
+      // thinner, longer cylinder
+      const geo = new THREE.CylinderGeometry(0.10, 0.10, H, 14, 1);
+      geo.translate(0, H / 2, 0);
+
+      riseArr = new Float32Array(count);
+      rises = new Float32Array(count);
+      grow  = new Float32Array(count);
+      const hueArr = new Float32Array(count);
+      const LEN_MIN = 0.72, LEN_SPAN = 0.62;       // per-shard length 0.72..1.34
+      let idx = 0;
+      for (let r = 0; r < rows && idx < count; r++){
+        const rad = R0 + r * RSTEP;
+        for (let c = 0; c < cols && idx < count; c++){
+          const f = cols === 1 ? 0.5 : c / (cols - 1);
+          const jt = ((Math.sin(idx * 12.9898) * 43758.5453) % 1) * 0.02 - 0.01;
+          const jr = ((Math.sin(idx * 78.233)  * 12543.123)  % 1) * 0.5  - 0.25;
+          const th = (f - 0.5) * ARC + jt;
+          const rr = rad + jr;
+          // each shard's intrinsic length (consistent per shard) drives BOTH its size and its colour
+          const lenN = Math.abs((Math.sin(idx * 4.898) * 9631.77) % 1);   // 0..1 normalised length
+          hueArr[idx] = lenN;
+          shards.push({
+            x: Math.sin(th) * rr, z: -Math.cos(th) * rr, th, by: BASE_Y + r * TIER,
+            phase: Math.random() * Math.PI * 2,
+            len: LEN_MIN + lenN * LEN_SPAN,
+            // iris pose: even spread around the ring, organic jitter
+            f: idx / count,
+            iA: (idx / count) * Math.PI * 2,
+            iR: 0.92 + Math.abs((Math.sin(idx * 7.13) * 571.3) % 1) * 0.16,
+            iL: 0.78 + Math.abs((Math.sin(idx * 3.71) * 833.1) % 1) * 0.42,
+            iZ: (((Math.sin(idx * 9.41) * 247.9) % 1) - 0.5) * 1.0
+          });
+          idx++;
+        }
+      }
+      geo.setAttribute('aRise', new THREE.InstancedBufferAttribute(riseArr, 1));
+      geo.setAttribute('aHue', new THREE.InstancedBufferAttribute(hueArr, 1));
+      riseAttr = geo.getAttribute('aRise');
+
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG, transparent: true, side: THREE.DoubleSide,
+        uniforms: { uRiseScale: { value: RISE_BASE }, uH: { value: H }, uGlow: { value: 1 } }
+      });
+      mesh = new THREE.InstancedMesh(geo, mat, count);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      grp = new THREE.Group();
+      grp.add(mesh);
+      scene.add(grp);
+    }
+
+    function layout(){
+      renderer.setSize(innerWidth, innerHeight, false);
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', layout);
+    layout();
+    rebuild();
+
+    // ---------- mouse → ground + screen-space cursor ----------
+    const Q = new URLSearchParams(location.search);
+    const DEMO = Q.has('demo');
+    // ?iris forces full ring; ?iris=0.5 freezes mid-choreography (for visual checks)
+    const IRISP = Q.has('iris') ? (Q.get('iris') ? Math.min(Math.max(parseFloat(Q.get('iris')) || 0, 0), 1) : 1) : null;
+    let nx = 0, ny = 0;
+    let mpx = -1e5, mpy = -1e5;   // cursor in CSS pixels (offscreen until the mouse moves)
+    window.addEventListener('mousemove', e => {
+      nx = (e.clientX / innerWidth) * 2 - 1;
+      ny = (e.clientY / innerHeight) * 2 - 1;
+      mpx = e.clientX; mpy = e.clientY;
+    }, { passive: true });
+    window.addEventListener('mouseleave', () => { mpx = -1e5; mpy = -1e5; }, { passive: true });
+    function groundFromMouse(){
+      const th = nx * (ARC / 2) * 0.92;
+      const rMax = R0 + (cfg.rw - 1) * RSTEP;
+      const rad = THREE.MathUtils.lerp(R0 - 0.6, rMax + 0.6, (1 - (ny + 1) / 2));
+      return { x: Math.sin(th) * rad, z: -Math.cos(th) * rad };
+    }
+
+    // ---------- scroll: swell + copy fade + iris progress ----------
+    const copy = $('copy'), hint = $('hint');
+    const irisSec = document.querySelector('.sentence-sec');   // the next paragraph: the ring forms around it
+    let scrollP = 0;
+    function onScroll(){
+      const sc = document.documentElement.scrollHeight - innerHeight;
+      scrollP = sc > 0 ? Math.min(Math.max(scrollY / sc, 0), 1) : 0;
+      hint.style.opacity = scrollY > 40 ? '0' : '1';
+      const wp = Math.min(Math.max(scrollY / (innerHeight * 0.6), 0), 1);
+      copy.style.transform = `translateY(${(-wp * 70).toFixed(1)}px)`;
+      copy.style.opacity = (1 - wp).toFixed(3);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const clamp01 = x => Math.min(Math.max(x, 0), 1);
+    const ss = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
+    function irisState(){
+      if (IRISP !== null) return { ti: IRISP, spin: 0 };
+      if (!irisSec) return { ti: 0, spin: 0 };
+      const r = irisSec.getBoundingClientRect();
+      const raw = (innerHeight - r.top) / (innerHeight * 1.6);
+      // assembles slowly as the paragraph section scrolls in, STAYS for the rest of the
+      // page, and keeps turning with every further pixel of scroll
+      return { ti: clamp01(raw), spin: Math.max(0, raw - 1) * 2.4 };
+    }
+
+    const clock = new THREE.Clock();
+    const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3();
+    const _mvp = new THREE.Matrix4();
+    let tAcc = 0, spinPhase = 0;
+
+    function tick(){
+      const dt = Math.min(clock.getDelta(), 0.05);
+      tAcc += dt;
+      const t = tAcc;
+      const st = irisState();
+      const ti = st.ti;
+      const mg = DEMO ? { x: 0, z: -(R0 + 2 * RSTEP) } : groundFromMouse();
+      const reach = 1.7 * cfg.rc;
+      const r2 = 2 * reach * reach;
+      const riseSpd = 0.085 * cfg.rs;
+      const fallSpd = 0.028 * cfg.fs;
+
+      // ----- place the group + camera FIRST so the screen-space proximity test is current-frame -----
+      grp.position.y = cfg.sp;
+      grp.scale.setScalar(cfg.sz);
+      // pulled back + raised vs v11 so the ~1.5x bigger iris stays composed in the viewport
+      camera.position.set(nx * 0.9, 6.4, 13.2);
+      camera.lookAt(0, 3.8, -5);
+      grp.updateMatrixWorld();
+      camera.updateMatrixWorld();
+      _mvp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      _mvp.multiply(grp.matrixWorld);   // group-local position -> clip space
+      const e = _mvp.elements;
+      // mouse-growth: gaussian falloff in screen pixels, eased so shards swell/relax with no pop
+      const GROW = 1.4 * cfg.mg;        // peak extra scale at the cursor
+      const SIG2 = 130 * 130;           // ~130px radius of influence
+
+      // iris geometry — base radius ~1.5x v11, with a narrow-viewport fit so it never clips the sides
+      const aspect = innerWidth / innerHeight;
+      const fit = Math.min(1, aspect / 1.15);
+      const Rl = (5.4 * fit * cfg.is) / cfg.sz;
+      const lcx = (nx * 0.5) / cfg.sz;
+      const lcy = (3.55 - cfg.sp) / cfg.sz;
+      const lcz = -2.0 / cfg.sz;
+      // the shards file UPRIGHT into a line along the ring's bottom edge, sliding sideways;
+      // the line then curls up and wraps into the circle, so each shard only ever tilts with
+      // the curve — motion stays perpendicular to the cylinder, no flipping, no in-place spin
+      const ax = lcx, ay = lcy - Rl;
+      const cu = ss(clamp01((ti - 0.42) / 0.58));
+      const curv = 0.02 + 0.98 * cu;
+      // once the circle has closed it turns with the scroll (plus a slow ambient drift)
+      const formed = ss(clamp01((ti - 0.92) / 0.08));
+      spinPhase += dt * 0.06 * formed;
+      const sOff = ((spinPhase + st.spin * cfg.ip) % (Math.PI * 2)) * formed;
+
+      for (let i = 0; i < shards.length; i++){
+        const p = shards[i];
+        // staggered file-in: each shard drifts aside to its slot in the line in turn
+        const li = ss(clamp01((ti - p.f * 0.15) / 0.45));
+
+        // rise: stadium behaviour fades out per-shard; a soft shimmer runs around the ring
+        let target = (0.05 + 0.045 * Math.sin(p.th * 2.2 + t * 0.5 + p.phase) + scrollP * 0.12);
+        const dx = p.x - mg.x, dz = p.z - mg.z;
+        target += Math.exp(-(dx * dx + dz * dz) / r2);
+        target = Math.min(target, 1) * (1 - li) + li * (0.10 + 0.10 * Math.sin(p.iA * 3 + t * 1.4));
+        const cur = rises[i];
+        rises[i] = cur + (target - cur) * (target > cur ? riseSpd : fallSpd);
+        riseArr[i] = rises[i];
+
+        // arc-length parametrised curling line: ph sweeps each shard around as the line wraps shut
+        const Re = (Rl * p.iR) / curv;
+        const ph = curv * (p.iA + sOff);
+        const lx = ax + Math.sin(ph) * Re;
+        const ly = ay + (1 - Math.cos(ph)) * Re;
+        const lz = lcz + (p.iZ / cfg.sz) * cu;
+        const px = p.x + (lx - p.x) * li, py = p.by + (ly - p.by) * li, pz = p.z + (lz - p.z) * li;
+        _p.set(px, py, pz);
+
+        // ----- screen-space mouse growth (works in every state: sliding, in-line, in-iris) -----
+        let gT = 0;
+        const cw = e[3] * px + e[7] * py + e[11] * pz + e[15];
+        if (cw > 0.0001){
+          const sx = ((e[0] * px + e[4] * py + e[8] * pz + e[12]) / cw * 0.5 + 0.5) * innerWidth;
+          const sy = (1.0 - ((e[1] * px + e[5] * py + e[9] * pz + e[13]) / cw * 0.5 + 0.5)) * innerHeight;
+          const ex = sx - mpx, ey = sy - mpy;
+          gT = Math.exp(-(ex * ex + ey * ey) / SIG2);
+        }
+        grow[i] += (gT - grow[i]) * 0.18;        // smooth eased response, no popping
+        const g = 1 + grow[i] * GROW;
+
+        _e.set(0, 0, ph * li);   // upright in the line; tilts only as the curve bends — tips end up pointing in
+        _q.setFromEuler(_e);
+        const syIris = (Rl * 0.45 * p.iL) / H;
+        const sy = (p.len + (syIris - p.len) * li) * g;   // length blends standing -> iris, scaled by growth
+        _s.set(g, sy, g);
+        _m.compose(_p, _q, _s);
+        mesh.setMatrixAt(i, _m);
+      }
+      riseAttr.needsUpdate = true;
+      mesh.instanceMatrix.needsUpdate = true;
+
+      mesh.material.uniforms.uRiseScale.value = RISE_BASE * cfg.rh * (1 - ti * 0.85);
+      mesh.material.uniforms.uGlow.value = cfg.gl * (1 + scrollP * 0.5);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
