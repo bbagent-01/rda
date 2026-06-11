@@ -22,6 +22,16 @@ export function wireNav(){
   const btn = document.querySelector('#variant-menu .drop-btn');
   if (btn) btn.addEventListener('click', e => { e.stopPropagation(); btn.parentElement.classList.toggle('open'); });
   document.addEventListener('click', () => { const d = document.querySelector('#variant-menu .nav-drop'); if (d) d.classList.remove('open'); });
+  // controls-panel toggle: every page starts with the panel CLOSED
+  if (document.getElementById('controls') && !document.getElementById('ctrlToggle')){
+    const t = document.createElement('button');
+    t.id = 'ctrlToggle'; t.type = 'button'; t.textContent = '⚙ Controls';
+    t.addEventListener('click', () => {
+      const open = document.body.classList.toggle('ctrls-open');
+      t.textContent = open ? '✕ Close' : '⚙ Controls';
+    });
+    document.body.appendChild(t);
+  }
 }
 export function mountNav(active){
   let el = document.getElementById('variant-menu');
