@@ -35,14 +35,14 @@
 
   <div id="controls">
     <div class="title-row"><span class="title">Conductor · Ribbons II</span><button id="refreshBtn">↻ Refresh</button></div>
-    <div class="ctrl"><div class="row"><span>Particles</span><span class="val" id="rbVal">24k</span></div><input id="rbSlider" type="range" min="8" max="48" step="2" value="24" /></div>
+    <div class="ctrl"><div class="row"><span>Particles</span><span class="val" id="rbVal">100k</span></div><input id="rbSlider" type="range" min="60" max="150" step="10" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Flow speed</span><span class="val" id="spVal">100%</span></div><input id="spSlider" type="range" min="20" max="300" step="5" value="100" /></div>
-    <div class="ctrl"><div class="row"><span>Chaos (idle)</span><span class="val" id="chVal">55%</span></div><input id="chSlider" type="range" min="0" max="100" step="1" value="55" /></div>
+    <div class="ctrl"><div class="row"><span>Chaos</span><span class="val" id="chVal">50%</span></div><input id="chSlider" type="range" min="0" max="100" step="1" value="50" /></div>
     <div class="ctrl"><div class="row"><span>Conduct strength</span><span class="val" id="cdVal">120%</span></div><input id="cdSlider" type="range" min="0" max="300" step="5" value="120" /></div>
-    <div class="ctrl"><div class="row"><span>Amplitude</span><span class="val" id="amVal">100%</span></div><input id="amSlider" type="range" min="30" max="250" step="5" value="100" /></div>
-    <div class="ctrl"><div class="row"><span>Crescendo (scroll)</span><span class="val" id="crVal">120%</span></div><input id="crSlider" type="range" min="0" max="300" step="5" value="120" /></div>
-    <div class="ctrl"><div class="row"><span>Embers</span><span class="val" id="thVal">100%</span></div><input id="thSlider" type="range" min="0" max="250" step="5" value="100" /></div>
-    <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="0" max="200" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Amplitude</span><span class="val" id="amVal">120%</span></div><input id="amSlider" type="range" min="30" max="250" step="5" value="120" /></div>
+    <div class="ctrl"><div class="row"><span>Crescendo</span><span class="val" id="crVal">120%</span></div><input id="crSlider" type="range" min="0" max="300" step="5" value="120" /></div>
+    <div class="ctrl"><div class="row"><span>Spikes</span><span class="val" id="thVal">100%</span></div><input id="thSlider" type="range" min="0" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">130%</span></div><input id="glSlider" type="range" min="0" max="200" step="5" value="130" /></div>
   </div>
 
   <script type="module">
@@ -63,16 +63,16 @@
     setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
 
     // ---------- controls ----------
-    // rb = particle count (in thousands), sp = flow speed, ch = idle chaos/turbulence,
-    // cd = conduct strength, am = amplitude, cr = crescendo (scroll), th = ember amount, gl = glow
+    // rb = particle count (in thousands), sp = flow speed, ch = fibrous chaos/shimmer,
+    // cd = conduct strength, am = amplitude, cr = crescendo (scroll), th = spike streaks, gl = glow
     const $ = id => document.getElementById(id);
     const sliders = { rb:$('rbSlider'), sp:$('spSlider'), ch:$('chSlider'), cd:$('cdSlider'), am:$('amSlider'), cr:$('crSlider'), th:$('thSlider'), gl:$('glSlider') };
     const vals    = { rb:$('rbVal'),    sp:$('spVal'),    ch:$('chVal'),    cd:$('cdVal'),    am:$('amVal'),    cr:$('crVal'),    th:$('thVal'),    gl:$('glVal') };
-    const cfg = { rb:24, sp:1, ch:0.55, cd:1.2, am:1, cr:1.2, th:1, gl:1 };
+    const cfg = { rb:100, sp:1, ch:0.5, cd:1.2, am:1.2, cr:1.2, th:1, gl:1.3 };
     const fmt = { rb:v=>v+'k', sp:v=>v+'%', ch:v=>v+'%', cd:v=>v+'%', am:v=>v+'%', cr:v=>v+'%', th:v=>v+'%', gl:v=>v+'%' };
     const scale = { rb:v=>+v, sp:v=>v/100, ch:v=>v/100, cd:v=>v/100, am:v=>v/100, cr:v=>v/100, th:v=>v/100, gl:v=>v/100 };
 
-    const KEY = 'rda_v14_ctrls';
+    const KEY = 'rda_v14_ctrls3';   // fresh key: slider semantics changed with the dust rebuild
     let suppress = true;
     function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
     Object.keys(sliders).forEach(k => {
@@ -100,154 +100,224 @@
 
     const COLORS = ['#d73624', '#ff6a34', '#e8484f', '#ff5a8a', '#f0457a', '#c0277e', '#96077e'];   // warm RDA reds/oranges/pinks/magentas — no blue
     const PALETTE = COLORS.map(c => new THREE.Color(c));
+    const CREAM   = new THREE.Color('#f3e0c4');   // far-layer desaturation target (pale warm cream)
 
     // ---------------------------------------------------------------------------
-    // PARTICLE SOUNDWAVE
-    // Thousands of fine soft points flow horizontally and stack into undulating
-    // soundwave ridges. The same multi-sine displacement (personal + shared waves)
-    // that drove the old ribbons now drives each particle's Y. A dense horizontal
-    // band forms the wave body; a thinner upper scatter drifts above like embers.
-    // Each point gets a soft round additive glow via gl_PointCoord in the fragment.
+    // FINE-DUST PARTICLE SOUNDWAVE  (stock-render structure, warm RDA palette)
+    //  · 6 stacked mountain-ridge layers: each layer is a continuous multi-sine
+    //    ridge line; beneath each crest the body fills with fine fibrous dust,
+    //    densest right at the crest (the crest reads as a bright line), thinning
+    //    downward with exponential falloff. Near layers hot+saturated, far
+    //    layers pale cream/maroon and dim.
+    //  · Hard waterline at the lower third; a vertically mirrored copy renders
+    //    below it at ~30% brightness, fading with depth — reflection in black water.
+    //  · Sparse vertical rain-streak filaments rise above the tallest peaks.
+    //  · The look depends on: TINY points (1–2.5px) + DIM alpha + MANY particles;
+    //    luminosity accumulates from density via additive blending — no big sprites.
     // ---------------------------------------------------------------------------
+    const LAYERS = 6;
+
     const VERT = `
       precision highp float;
-      uniform float uTime, uAmp, uH, uPixelRatio, uConduct, uChaos, uEmber, uBandH, uWorldW;
+      uniform float uTime;
+      uniform float uAmp;
+      uniform float uH;
+      uniform float uPixelRatio;
+      uniform float uConduct;
+      uniform float uChaos;
+      uniform float uSpike;
+      uniform float uWorldW;
+      uniform float uBaseline;
+      uniform float uFieldH;
+      uniform float uBright;
       uniform vec2  uMouse;
-      attribute float aX;        // base x across the field (-0.5..0.5 of width)
-      attribute float aRow;      // -1..1 position within the band (0 = crest centreline)
-      attribute float aLayer;    // depth layer 0..1
-      attribute float aSeed;     // per-particle random
-      attribute float aEmber;    // 0 = body particle, 1 = ember (upper scatter)
-      attribute float aSize;     // base point size multiplier
-      attribute vec3  aColor;    // per-particle base colour
+      attribute float aX;        // base x across the field (-0.5..0.5 of overscanned width)
+      attribute float aDrop;     // body: exponential depth below crest (0=crest, 1=baseline). spikes: stack slot 0..1
+      attribute float aLayer;    // ridge layer index 0 (far) .. 5 (near)
+      attribute float aSeed;     // per-particle random (shared per spike streak)
+      attribute float aSpike;    // 0 = body dust, 1 = vertical rain-streak filament
+      attribute float aMirror;   // 1 = this particle renders only as the reflection
+      attribute float aSize;     // base point size multiplier (~1..2.2 px)
+      attribute vec3  aColor;    // per-particle base colour (layer-graded)
       varying vec3  vColor;
-      varying float vBright;
-      varying float vEmber;
+      varying float vAlpha;
+      varying float vCrest;
 
-      // cheap hash-based smooth value for drift
-      float n1(float x){ return sin(x*12.9898)*43758.5453; }
+      float hash(float n){ return fract(sin(n*127.1)*43758.5453); }
 
       void main(){
-        float x = aX * uWorldW;            // world x across the screen
+        float x = aX * uWorldW;
         float t = uTime;
+        float k = aLayer;
+        float lt = k / ${(LAYERS - 1).toFixed(1)};      // 0 far .. 1 near
 
-        // ---- the soundwave: personal + shared multi-sine (warm-stacked ridges) ----
-        float fP = 0.85 + fract(aSeed*1.7)*0.9;          // personal frequency per particle group
-        float sP = 0.5  + fract(aSeed*3.1)*0.7;          // personal speed
-        float ph = aSeed * 6.2831;
-        float personal = sin(x*fP + t*sP + ph) + 0.5*sin(x*fP*2.3 + t*sP*1.37 + ph*2.1);
-        float shared   = sin(x*1.0 + t*0.6)    + 0.5*sin(x*1.71 + t*0.6*1.21);
-        float w = mix(personal, shared, uH);             // harmony blends toward the shared wave
-        float crest = uAmp * w * 0.6;                    // the ridge line for this column
+        // ---- per-layer ridge parameters (stable hashes of the layer index) ----
+        float h1 = hash(k + 1.3);
+        float h2 = hash(k + 5.7);
+        float h3 = hash(k + 9.1);
+        float h4 = hash(k + 13.7);
+        float f1 = 0.55 + h1 * 0.70;          // primary spatial frequency
+        float f2 = f1 * (1.9 + h2 * 1.1);
+        float f3 = f1 * (3.4 + h3 * 1.6);
+        float s1 = 0.10 + h2 * 0.10;          // slow drift speeds
+        float s2 = 0.14 + h3 * 0.12;
+        float s3 = 0.20 + h1 * 0.15;
+        float p1 = h3 * 6.2831;
+        float p2 = h4 * 6.2831;
+        float p3 = h1 * 6.2831;
 
-        // ---- stack the band around the ridge line; rows fan out vertically ----
-        float band = aRow * uBandH * (aEmber > 0.5 ? 2.4 : 1.0);   // embers reach higher
-        float y = crest + band;
+        // ---- the ridge line: layered sines, shaped so peaks are tall + valleys low ----
+        float w = sin(x*f1 + t*s1 + p1) * 0.60
+                + sin(x*f2 - t*s2 + p2) * 0.28
+                + sin(x*f3 + t*s3 + p3) * 0.12;
+        float w01 = clamp(w * 0.5 + 0.5, 0.0, 1.0);
+        w01 = pow(w01, 1.55);                              // dramatic crests, flat valleys
 
-        // ---- gentle per-particle drift / turbulence so the cloud flows (idle chaos) ----
-        float drift = uChaos * (aEmber > 0.5 ? 0.55 : 0.28);
-        y += sin(x*1.9 + t*(0.7+sP) + aSeed*9.0) * 0.10 * drift;
-        y += sin(t*0.9 + aSeed*40.0) * 0.06 * drift;       // slow vertical shimmer
-        x += sin(t*0.5 + aSeed*20.0 + aRow*3.0) * 0.08 * drift;  // lateral sway
+        // ---- mouse conduct: local swell of the envelope near the cursor column ----
+        float dx = x - uMouse.x;
+        float infl = exp(-(dx * dx) / 3.2);
+        float swell = 1.0 + infl * uConduct * (0.30 + 0.95 * uH);
 
-        // ---- mouse conduct: lift / swell particles near the cursor column ----
-        float infl = exp(-pow(x - uMouse.x, 2.0) / 2.6);
-        y += infl * (uMouse.y - crest) * uConduct * 0.55 * (1.0 - 0.4*aEmber);
-        float swell = 1.0 + infl * uConduct * 0.9;         // points puff up under the baton
+        float crestH = uFieldH * (0.10 + 0.15*h4 + (0.40 + 0.32*lt) * uAmp * w01 * swell);
+        float crest  = uBaseline + crestH;
 
-        float z = (aLayer - 0.5) * 2.4;                    // spread across depth for parallax layering
+        float y, alpha, crestGlow;
+        float layerB = mix(0.28, 1.0, lt*lt);              // far layers dim, near layers bright
 
-        vec4 mv = modelViewMatrix * vec4(x, y, z, 1.0);
-        gl_Position = projectionMatrix * mv;
+        if (aSpike < 0.5){
+          // ---- body dust: dense at the crest edge, exponential thinning to the baseline ----
+          y = uBaseline + crestH * (1.0 - aDrop);
+          crestGlow = exp(-aDrop * 3.4);
+          alpha = (0.30 + 0.70 * crestGlow) * layerB * 0.52;
 
-        // ---- brightness: hottest on the crest centreline, dimmer toward band edges ----
-        float toCrest = 1.0 - clamp(abs(aRow), 0.0, 1.0);   // 1 at centreline -> 0 at band edge
-        float bodyBright = 0.35 + 0.85 * toCrest;
-        float emberBright = mix(0.45, 0.0, clamp(abs(aRow), 0.0, 1.0)) * uEmber;  // embers fade upward
-        vBright = mix(bodyBright, emberBright, aEmber);
-        vEmber = aEmber;
+          // fibrous strands: jitter correlated with x so the dust reads as filaments, not noise
+          float jit = uChaos * (0.45 + aDrop * 0.9);
+          float strand = sin(x*8.3 + aSeed*37.0 + t*0.5) * sin(x*21.0 + aSeed*17.0 - t*0.3);
+          y += strand * jit * uFieldH * 0.045;
+          x += sin(x*3.1 + aSeed*53.0 + t*0.4) * jit * 0.10;
+          y += sin(t*0.8 + aSeed*91.0) * uChaos * 0.02;    // slow shimmer
+        } else {
+          // ---- vertical rain-streak filaments above the tallest peaks ----
+          float gate  = smoothstep(0.55, 0.90, w01);       // only where this column is a high crest
+          float climb = fract(aSeed * 9.17 + t * 0.08);    // streak slowly rises, then resets
+          y = crest + (climb * 0.45 + aDrop * 0.04) * uFieldH;
+          x += sin(aSeed * 71.0) * 0.05                    // hair offset per streak
+             + sin(t * 0.5 + aSeed * 30.0) * 0.03;         // whole streak sways together
+          float fade = 1.0 - climb;                        // dimmer with height above the crest
+          crestGlow = fade;
+          alpha = fade * fade * gate * uSpike * 0.30 * mix(0.5, 1.0, lt);
+        }
+
+        // ---- mirror reflection across the hard waterline ----
+        float aboveH = y - uBaseline;
+        if (aMirror > 0.5){
+          y = uBaseline - aboveH * 0.92;
+          alpha *= 0.55 * exp(-max(aboveH, 0.0) * 0.95);   // reflection: a bit brighter, longer fade
+        }
+
+        vAlpha = alpha * uBright;
+        vCrest = crestGlow * (0.30 + 0.70 * lt);
         vColor = aColor;
 
-        // ---- size: bigger/brighter near crest, tiny for high embers; perspective attenuated ----
-        float sz = aSize * mix(1.0, 0.55, aEmber) * (0.55 + 0.9 * toCrest) * swell;
-        gl_PointSize = sz * uPixelRatio * (300.0 / max(-mv.z, 0.1));
+        vec4 mv = modelViewMatrix * vec4(x, y, 0.0, 1.0);  // all layers at z=0: crisp shared waterline
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aSize * uPixelRatio;                // tiny, fixed — no attenuation blow-ups
       }`;
 
     const FRAG = `
       precision highp float;
       uniform float uGlow;
       varying vec3  vColor;
-      varying float vBright;
-      varying float vEmber;
+      varying float vAlpha;
+      varying float vCrest;
       void main(){
-        // soft round glow: bright core -> transparent edge
+        // crisp dust grain: hard-ish core with a ~1px soft rim
         vec2 c = gl_PointCoord - vec2(0.5);
-        float d = length(c);
-        if (d > 0.5) discard;
-        float core = smoothstep(0.5, 0.0, d);          // 0 at rim, 1 at centre
-        float soft = pow(core, 1.6);                   // fibrous soft falloff
-        float a = soft * vBright * uGlow;
-        // warm hot core lift on the brightest body particles
-        vec3 col = vColor + vec3(0.30, 0.12, 0.05) * pow(core, 3.0) * vBright * (1.0 - vEmber);
-        gl_FragColor = vec4(col * (0.6 + 0.7*core), a);
+        float d = length(c) * 2.0;
+        if (d > 1.0) discard;
+        float fall = 1.0 - smoothstep(0.45, 1.0, d);
+        float a = fall * vAlpha * uGlow;
+        // crest edges run hottest — lift toward white-hot orange right on the ridge line
+        vec3 col = vColor + vec3(0.55, 0.30, 0.10) * vCrest * 0.55;
+        gl_FragColor = vec4(col, a);
       }`;
 
     let points = null;
     const uniforms = {
       uTime:{value:0}, uAmp:{value:1}, uH:{value:0}, uPixelRatio:{value:Math.min(devicePixelRatio,2)},
-      uConduct:{value:1.2}, uChaos:{value:0.55}, uEmber:{value:1}, uBandH:{value:0.34},
-      uWorldW:{value:14}, uMouse:{value:new THREE.Vector2(0,0)}, uGlow:{value:1}
+      uConduct:{value:1.2}, uChaos:{value:0.5}, uSpike:{value:1}, uWorldW:{value:14},
+      uBaseline:{value:-1.2}, uFieldH:{value:3.6}, uBright:{value:1},
+      uMouse:{value:new THREE.Vector2(0,0)}, uGlow:{value:1}
     };
 
     function rebuild(){
       if (points){ scene.remove(points); points.geometry.dispose(); points.material.dispose(); points = null; }
       const ws = worldSize();
-      uniforms.uWorldW.value = ws.w * 1.5;               // overscan so the field fills the edges
+      uniforms.uWorldW.value   = ws.w * 1.15;            // bleed past the screen edges
+      uniforms.uBaseline.value = -ws.h * 0.17;           // waterline at the lower third
+      uniforms.uFieldH.value   =  ws.h * 0.50;           // wave field height above the line
 
       const N = Math.round(cfg.rb * 1000);
-      const EMBER_FRAC = 0.30;                            // share of particles that are upper-scatter embers
-      const aX = new Float32Array(N), aRow = new Float32Array(N), aLayer = new Float32Array(N);
-      const aSeed = new Float32Array(N), aEmber = new Float32Array(N), aSize = new Float32Array(N);
-      const aColor = new Float32Array(N * 3);
+      const STACK = 6;                                    // points per spike streak (vertical run)
+      const nSpike = Math.round(N * 0.06 / STACK) * STACK;
+      const nBody  = N - nSpike;
 
-      for (let i = 0; i < N; i++){
-        const ember = Math.random() < EMBER_FRAC ? 1 : 0;
-        aX[i]    = Math.random() - 0.5;                  // even horizontal spread
-        aLayer[i]= Math.random();
-        aSeed[i] = Math.random();
-        aEmber[i]= ember;
+      const aX = new Float32Array(N), aDrop = new Float32Array(N), aLayer = new Float32Array(N);
+      const aSeed = new Float32Array(N), aSpike = new Float32Array(N), aMirror = new Float32Array(N);
+      const aSize = new Float32Array(N), aColor = new Float32Array(N * 3);
 
-        if (ember){
-          // embers drift ABOVE the band: biased upward, sparse, small
-          aRow[i] = 0.25 + Math.random() * Math.random() * 1.4;   // squared bias -> sparser higher up
-          aSize[i] = 1.0 + Math.random() * 1.6;
-        } else {
-          // body particles cluster toward the crest centreline (denser/brighter middle)
-          // triangular-ish distribution: mean of two uniforms hugs 0
-          const r = (Math.random() + Math.random() - 1.0);        // -1..1, peaked at 0
-          aRow[i] = r;
-          aSize[i] = 1.6 + Math.random() * 2.2;
-        }
-
-        // colour shifts across x (hot reds/oranges -> magenta) plus brightness on the crest
-        const cpos = (aX[i] + 0.5) * (PALETTE.length - 1) + (Math.random()-0.5)*0.9;
+      const setColor = (i, li) => {
+        // hue drifts across x (reds/oranges -> pinks/magentas) like the reference's zones
+        const cpos = (aX[i] + 0.5) * (PALETTE.length - 1) + (Math.random() - 0.5) * 0.9;
         const ci = Math.max(0, Math.min(PALETTE.length - 2, Math.floor(cpos)));
         const f = Math.max(0, Math.min(1, cpos - ci));
-        const c0 = PALETTE[ci], c1 = PALETTE[ci + 1];
-        aColor[i*3]   = c0.r + (c1.r - c0.r) * f;
-        aColor[i*3+1] = c0.g + (c1.g - c0.g) * f;
-        aColor[i*3+2] = c0.b + (c1.b - c0.b) * f;
+        const c = PALETTE[ci].clone().lerp(PALETTE[ci + 1], f);
+        // two-tone depth: far layers wash toward pale warm cream, near layers stay saturated hot
+        const lt = li / (LAYERS - 1);
+        c.lerp(CREAM, (1 - lt) * (0.40 + Math.random() * 0.20));
+        aColor[i*3] = c.r; aColor[i*3+1] = c.g; aColor[i*3+2] = c.b;
+      };
+
+      // ---- body dust ----
+      for (let i = 0; i < nBody; i++){
+        aX[i] = Math.random() - 0.5;
+        const li = Math.min(LAYERS - 1, Math.floor(Math.pow(Math.random(), 0.75) * LAYERS)); // bias near
+        aLayer[i] = li;
+        aSeed[i]  = Math.random();
+        aSpike[i] = 0;
+        aMirror[i]= Math.random() < 0.40 ? 1 : 0;
+        // exponential depth below the crest: dense right at the edge, thinning to the baseline
+        aDrop[i]  = Math.min(1, -Math.log(1 - Math.random() * 0.985) / 4.2);
+        aSize[i]  = 0.9 + Math.random() * 0.7 + (li / (LAYERS - 1)) * 0.6;   // ~0.9..2.2 px
+        setColor(i, li);
+      }
+
+      // ---- spike streaks: groups of STACK points sharing x + seed -> vertical filaments ----
+      for (let i = nBody; i < N; i += STACK){
+        const sx = Math.random() - 0.5;
+        const sseed = Math.random();
+        const li = LAYERS - 1 - (Math.random() < 0.5 ? 0 : 1);   // front two layers only
+        const mir = Math.random() < 0.40 ? 1 : 0;
+        for (let j = 0; j < STACK; j++){
+          const idx = i + j;
+          aX[idx] = sx; aSeed[idx] = sseed; aLayer[idx] = li;
+          aSpike[idx] = 1; aMirror[idx] = mir;
+          aDrop[idx] = j / (STACK - 1);                          // stacked run along the streak
+          aSize[idx] = 1.0 + Math.random() * 0.3;                // thin
+          setColor(idx, li);
+        }
       }
 
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));  // dummy; real pos built in shader
-      geo.setAttribute('aX',     new THREE.BufferAttribute(aX, 1));
-      geo.setAttribute('aRow',   new THREE.BufferAttribute(aRow, 1));
-      geo.setAttribute('aLayer', new THREE.BufferAttribute(aLayer, 1));
-      geo.setAttribute('aSeed',  new THREE.BufferAttribute(aSeed, 1));
-      geo.setAttribute('aEmber', new THREE.BufferAttribute(aEmber, 1));
-      geo.setAttribute('aSize',  new THREE.BufferAttribute(aSize, 1));
-      geo.setAttribute('aColor', new THREE.BufferAttribute(aColor, 3));
+      geo.setAttribute('aX',      new THREE.BufferAttribute(aX, 1));
+      geo.setAttribute('aDrop',   new THREE.BufferAttribute(aDrop, 1));
+      geo.setAttribute('aLayer',  new THREE.BufferAttribute(aLayer, 1));
+      geo.setAttribute('aSeed',   new THREE.BufferAttribute(aSeed, 1));
+      geo.setAttribute('aSpike',  new THREE.BufferAttribute(aSpike, 1));
+      geo.setAttribute('aMirror', new THREE.BufferAttribute(aMirror, 1));
+      geo.setAttribute('aSize',   new THREE.BufferAttribute(aSize, 1));
+      geo.setAttribute('aColor',  new THREE.BufferAttribute(aColor, 3));
       geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0,0,0), 100);   // never frustum-cull
 
       const mat = new THREE.ShaderMaterial({
@@ -296,28 +366,26 @@
     window.addEventListener('scroll', onScroll, { passive: true });
 
     const clock = new THREE.Clock();
+    let simT = 0;                  // accumulated wave time (so Flow-speed changes don't jump)
     function tick(){
-      const t = clock.getElapsedTime();
-      // conducting builds harmony; stillness lets it dissolve back to chaos
+      const dt = Math.min(clock.getDelta(), 0.05);
+      // conducting builds harmony; stillness lets it dissolve
       if (mouseSpeed > 2) harmony = Math.min(harmony + 0.012 * cfg.cd, 1);
       else harmony = Math.max(harmony - 0.004, 0);
       mouseSpeed *= 0.9;
       mxW += (tmxW - mxW) * 0.04;  // slow lazy baton
       myW += (tmyW - myW) * 0.04;
 
-      const idleH = (1 - cfg.ch) * 0.5;                     // chaos slider sets the idle floor
-      const h = Math.min(idleH + harmony * (1 - idleH), 1);
-      const amp = cfg.am * (1 + scrollP * cfg.cr * 1.6);
-      const spd = cfg.sp * (1 + scrollP * cfg.cr * 0.7);
+      const spd = cfg.sp * (1 + scrollP * cfg.cr * 0.6);
+      simT += dt * spd;
 
-      uniforms.uTime.value    = t * spd;
-      uniforms.uAmp.value     = amp;
-      uniforms.uH.value       = h;
+      uniforms.uTime.value    = simT;
+      uniforms.uAmp.value     = cfg.am * (1 + scrollP * cfg.cr * 1.2);   // crescendo raises the ridges
+      uniforms.uH.value       = harmony;
       uniforms.uConduct.value = cfg.cd;
-      // crescendo also energises the cloud: more turbulence + spread under scroll
-      uniforms.uChaos.value   = cfg.ch * (1 + scrollP * cfg.cr * 0.8);
-      uniforms.uEmber.value   = cfg.th;
-      uniforms.uBandH.value   = 0.34 * (1 + scrollP * cfg.cr * 0.5);
+      uniforms.uChaos.value   = cfg.ch * (1 + scrollP * cfg.cr * 0.4);
+      uniforms.uSpike.value   = cfg.th * (1 + scrollP * cfg.cr * 0.5);
+      uniforms.uBright.value  = 1 + scrollP * cfg.cr * 0.7;              // crescendo brightens the dust
       uniforms.uMouse.value.set(mxW, myW);
       uniforms.uGlow.value    = cfg.gl;
 
