@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>RDA Digital — Hero Sandbox (v15 · Spectrum)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { overflow-x: hidden; }
+    #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+    #vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(120% 95% at 50% 42%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.65) 100%); }
+    .hero-copy { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 0 7vw; pointer-events: none; }
+    .hero-copy .sentence { text-align: center; max-width: 14ch; }
+    .hero-copy .sub { margin-top: 26px; font-size: clamp(15px, 1.6vw, 21px); font-weight: 500;
+      color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
+  </script>
+</head>
+<body class="v15">
+
+  <canvas id="fx"></canvas>
+  <div id="vignette"></div>
+
+  <div class="hero-copy" id="copy">
+    <p class="sentence" data-sentence="Victory Never Sounded So Good."></p>
+    <p class="sub reveal">AI can play every instrument. Great leaders ensure the entire orchestra performs in harmony.</p>
+  </div>
+
+  <div class="scroll-hint" id="hint">Scroll ↓</div>
+
+  <div id="controls">
+    <div class="title-row"><span class="title">Conductor · Spectrum</span><button id="refreshBtn">↻ Refresh</button></div>
+    <div class="ctrl"><div class="row"><span>Bars</span><span class="val" id="brVal">96</span></div><input id="brSlider" type="range" min="48" max="140" step="2" value="96" /></div>
+    <div class="ctrl"><div class="row"><span>Flow speed</span><span class="val" id="spVal">100%</span></div><input id="spSlider" type="range" min="20" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Amplitude</span><span class="val" id="amVal">100%</span></div><input id="amSlider" type="range" min="30" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="0" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Peak sharpness</span><span class="val" id="pkVal">100%</span></div><input id="pkSlider" type="range" min="30" max="260" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Conduct strength</span><span class="val" id="cdVal">120%</span></div><input id="cdSlider" type="range" min="0" max="300" step="5" value="120" /></div>
+    <div class="ctrl"><div class="row"><span>Crescendo (scroll)</span><span class="val" id="crVal">120%</span></div><input id="crSlider" type="range" min="0" max="300" step="5" value="120" /></div>
+    <div class="ctrl"><div class="row"><span>Reflection</span><span class="val" id="rfVal">On</span></div><input id="rfSlider" type="range" min="0" max="1" step="1" value="1" /></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { mountSections, mountNav } from './sections.js';
+    mountSections(); mountNav('15');
+
+    // ---------- copy reveal (same word-stagger language as the other pages) ----------
+    document.querySelectorAll('#copy [data-sentence]').forEach(p => {
+      p.dataset.sentence.split(/\s+/).forEach(w => {
+        const s = document.createElement('span');
+        s.className = 'word reveal'; s.textContent = w;
+        p.appendChild(s); p.appendChild(document.createTextNode(' '));
+      });
+    });
+    const revealItems = [...document.querySelectorAll('#copy .reveal')];
+    revealItems.forEach((el, i) => el.style.transitionDelay = (i * 70) + 'ms');
+    setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
+
+    // ---------- controls ----------
+    const $ = id => document.getElementById(id);
+    const sliders = { br:$('brSlider'), sp:$('spSlider'), am:$('amSlider'), gl:$('glSlider'), pk:$('pkSlider'), cd:$('cdSlider'), cr:$('crSlider'), rf:$('rfSlider') };
+    const vals    = { br:$('brVal'),    sp:$('spVal'),    am:$('amVal'),    gl:$('glVal'),    pk:$('pkVal'),    cd:$('cdVal'),    cr:$('crVal'),    rf:$('rfVal') };
+    const cfg = { br:96, sp:1, am:1, gl:1, pk:1, cd:1.2, cr:1.2, rf:1 };
+    const fmt = { br:v=>v, sp:v=>v+'%', am:v=>v+'%', gl:v=>v+'%', pk:v=>v+'%', cd:v=>v+'%', cr:v=>v+'%', rf:v=>(+v?'On':'Off') };
+    const scale = { br:v=>+v, sp:v=>v/100, am:v=>v/100, gl:v=>v/100, pk:v=>v/100, cd:v=>v/100, cr:v=>v/100, rf:v=>+v };
+
+    const KEY = 'rda_v15_ctrls';
+    let suppress = true;
+    function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
+    Object.keys(sliders).forEach(k => {
+      sliders[k].addEventListener('input', () => {
+        cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
+        if (k === 'br') rebuild();
+        persist();
+      });
+    });
+    try { const o = JSON.parse(localStorage.getItem(KEY)); if (o) Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } }); } catch(e){}
+    suppress = false;
+    $('refreshBtn').addEventListener('click', () => location.reload());
+
+    // ---------- scene ----------
+    const canvas = $('fx');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 1);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    camera.position.set(0, 0, 10);
+
+    // world size at z=0
+    function worldSize(){ const h = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov)/2) * camera.position.z; return { w: h * camera.aspect, h }; }
+
+    const COLORS = ['#d73624', '#ff6a34', '#e8484f', '#ff5a8a', '#f0457a', '#c0277e', '#96077e'];   // warm RDA reds/oranges/pinks/magentas — no blue
+
+    // ---------- spectrum bars (one InstancedMesh of thin vertical quads) ----------
+    // Base geometry = a tall quad whose y spans [-uReflFrac .. 1]: the y>=0 part is the bar,
+    // the y<0 part is its mirrored reflection below the baseline. The vertex shader reads a
+    // per-instance attribute (aIndex 0..1 across the width, aSeed) plus a per-instance live
+    // aHeight pushed each frame, places + scales the quad, and the fragment shader paints a
+    // glowing glass bar: crisp hot core, soft outward bloom, hotter tip, soft base falloff.
+    const VERT = `
+      precision highp float;
+      attribute float aIndex;     // 0..1 position across the spectrum width
+      attribute float aSeed;      // per-bar random-ish seed
+      attribute float aHeight;    // live height 0..~1.5, updated per frame
+      uniform float uHalfW;       // half the field width in world units
+      uniform float uColW;        // column slot width in world units
+      uniform float uBarMaxH;     // tallest a bar can reach, world units
+      uniform float uBaseY;       // baseline y (bars grow upward from here)
+      varying float vSide;        // -0.5..0.5 across the bar's width
+      varying float vAlong;       // along the bar: 0 base -> 1 tip ; <0 = reflection
+      varying float vIndex;
+      varying float vSeed;
+      varying float vHeight;
+      void main(){
+        vSide = position.x;       // base quad x in [-0.5, 0.5]
+        vAlong = position.y;      // base quad y in [-reflFrac, 1]
+        vIndex = aIndex; vSeed = aSeed; vHeight = aHeight;
+
+        float barW = uColW * 0.34;                 // thin bar inside its column slot
+        float xC = (aIndex - 0.5) * 2.0 * uHalfW;  // centre x of this column
+        float worldH = aHeight * uBarMaxH;
+
+        float px = xC + position.x * barW;
+        float py;
+        if (position.y >= 0.0){
+          py = uBaseY + position.y * worldH;                 // the bar, growing up
+        } else {
+          py = uBaseY + position.y * worldH * 0.55;          // mirrored reflection, shorter
+        }
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(px, py, 0.0, 1.0);
+      }`;
+    const FRAG = `
+      precision highp float;
+      uniform float uTime;
+      uniform float uGlow;
+      varying float vSide;
+      varying float vAlong;
+      varying float vIndex;
+      varying float vSeed;
+      varying float vHeight;
+
+      // hue ramp across the warm RDA palette (deep red -> orange -> pink -> magenta), no blue
+      vec3 warmRamp(float t){
+        t = clamp(t, 0.0, 1.0);
+        vec3 c0 = vec3(0.843, 0.212, 0.141);   // #d73624
+        vec3 c1 = vec3(1.000, 0.416, 0.204);   // #ff6a34
+        vec3 c2 = vec3(0.910, 0.282, 0.310);   // #e8484f
+        vec3 c3 = vec3(1.000, 0.353, 0.541);   // #ff5a8a
+        vec3 c4 = vec3(0.753, 0.153, 0.494);   // #c0277e
+        vec3 c5 = vec3(0.588, 0.027, 0.494);   // #96077e
+        if (t < 0.2)  return mix(c0, c1, t/0.2);
+        if (t < 0.4)  return mix(c1, c2, (t-0.2)/0.2);
+        if (t < 0.6)  return mix(c2, c3, (t-0.4)/0.2);
+        if (t < 0.8)  return mix(c3, c4, (t-0.6)/0.2);
+        return mix(c4, c5, (t-0.8)/0.2);
+      }
+
+      void main(){
+        // distance from the bar's vertical centre line: 0 at core, 1 at edge
+        float d = clamp(abs(vSide) * 2.0, 0.0, 1.0);
+
+        // crisp bright CORE line + soft outward bloom (glass glow)
+        float core  = pow(1.0 - d, 3.0);     // tight hot core
+        float bloom = pow(1.0 - d, 1.1);     // wide soft glow
+
+        bool isRefl = vAlong < 0.0;
+        float along = abs(vAlong);            // 0 at base -> 1 at tip (or reflection depth)
+
+        float tipBoost = 0.55 + 0.80 * smoothstep(0.15, 1.0, along);  // brighter toward the tip
+        float baseFall = smoothstep(0.0, 0.16, along);                // gentle falloff at the base
+        float shimmer  = 0.85 + 0.15 * sin(uTime * 6.0 + vSeed * 9.0 + along * 5.0);
+
+        // colour: hue shifts across the spectrum width, hotter (whiter) at core + on tall bars
+        vec3 base = warmRamp(vIndex * 0.85 + vHeight * 0.18);
+        vec3 col = base;
+        col = mix(col, vec3(1.0, 0.97, 0.92), core * (0.55 + 0.45 * smoothstep(0.4, 1.2, vHeight)));
+        col += base * bloom * 0.9;
+        col *= tipBoost * shimmer;
+
+        float intensity = (core * 1.35 + bloom * 0.55) * baseFall * uGlow;
+
+        if (isRefl){
+          // mirrored reflection: dim, fades out fast downward
+          intensity *= 0.30 * (1.0 - smoothstep(0.0, 0.9, along));
+        }
+
+        intensity = clamp(intensity, 0.0, 4.0);
+        // additive output (blending = Additive): alpha rides intensity for soft edges over black
+        gl_FragColor = vec4(col * intensity, intensity);
+      }`;
+
+    let bars = null;          // InstancedMesh
+    let barState = null;      // { n, aHeight Float32Array, phase, attr, ... }
+
+    function rebuild(){
+      if (bars){ scene.remove(bars); bars.geometry.dispose(); bars.material.dispose(); bars = null; }
+      const n = cfg.br;
+      const ws = worldSize();
+      const halfW = ws.w * 0.52;            // span slightly past edges so it bleeds off-screen
+      const colW = (halfW * 2) / n;
+      const reflFrac = cfg.rf > 0.5 ? 0.5 : 0.0;   // reflection extends to y = -reflFrac
+
+      // base quad: x in [-0.5,0.5], y in [-reflFrac .. 1]
+      const geo = new THREE.PlaneGeometry(1, 1 + reflFrac, 1, 1);
+      geo.translate(0, (1 + reflFrac) / 2 - reflFrac, 0);   // y range -> [-reflFrac, 1]
+
+      const aIndex = new Float32Array(n);
+      const aSeed = new Float32Array(n);
+      const aHeight = new Float32Array(n);
+      const phase = new Float32Array(n);
+      for (let i = 0; i < n; i++){
+        const t = n === 1 ? 0.5 : i / (n - 1);
+        aIndex[i] = t;
+        let s = (Math.sin(i * 12.9898) * 43758.5453) % 1; s = s < 0 ? s + 1 : s;
+        aSeed[i] = s;
+        aHeight[i] = 0.4;
+        phase[i] = t * Math.PI * 2.0;
+      }
+      geo.setAttribute('aIndex',  new THREE.InstancedBufferAttribute(aIndex, 1));
+      geo.setAttribute('aSeed',   new THREE.InstancedBufferAttribute(aSeed, 1));
+      geo.setAttribute('aHeight', new THREE.InstancedBufferAttribute(aHeight, 1));
+
+      const baseY = -ws.h * 0.30;           // baseline sits low so bars rise into the frame
+
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG,
+        transparent: true, depthWrite: false, depthTest: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime:{value:0}, uGlow:{value:1},
+          uHalfW:{value:halfW}, uColW:{value:colW},
+          uBarMaxH:{value:ws.h * 0.92}, uBaseY:{value:baseY}
+        }
+      });
+      bars = new THREE.InstancedMesh(geo, mat, n);
+      bars.frustumCulled = false;
+      scene.add(bars);
+
+      barState = { n, aHeight, phase, attr: geo.getAttribute('aHeight'), baseY, halfW, colW, ws };
+    }
+
+    function layout(){
+      renderer.setSize(innerWidth, innerHeight, false);
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      rebuild();
+    }
+    window.addEventListener('resize', layout);
+    layout();
+
+    // ---------- conducting state ----------
+    let mxN = 0.5;                 // eased mouse x in 0..1 (across the spectrum width)
+    let myN = 0.5;                 // eased mouse y in 0..1
+    let tmxN = 0.5, tmyN = 0.5;    // targets
+    let harmony = 0;               // builds while you conduct, decays when idle
+    let lastMX = 0, lastMY = 0, mouseSpeed = 0;
+    window.addEventListener('mousemove', e => {
+      tmxN = e.clientX / innerWidth;
+      tmyN = 1 - e.clientY / innerHeight;
+      mouseSpeed = Math.min(Math.hypot(e.clientX - lastMX, e.clientY - lastMY), 80);
+      lastMX = e.clientX; lastMY = e.clientY;
+    }, { passive: true });
+
+    // scroll: crescendo + copy fade
+    const copy = $('copy'), hint = $('hint');
+    let scrollP = 0;
+    function onScroll(){
+      const sc = document.documentElement.scrollHeight - innerHeight;
+      scrollP = sc > 0 ? Math.min(Math.max(scrollY / sc, 0), 1) : 0;
+      hint.style.opacity = scrollY > 40 ? '0' : '1';
+      const wp = Math.min(Math.max(scrollY / (innerHeight * 0.6), 0), 1);
+      copy.style.transform = `translateY(${(-wp * 70).toFixed(1)}px)`;
+      copy.style.opacity = (1 - wp).toFixed(3);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const clock = new THREE.Clock();
+    function tick(){
+      const t = clock.getElapsedTime();
+      // conducting builds harmony; stillness lets it dissolve
+      if (mouseSpeed > 2) harmony = Math.min(harmony + 0.012 * cfg.cd, 1);
+      else harmony = Math.max(harmony - 0.005, 0);
+      mouseSpeed *= 0.9;
+      mxN += (tmxN - mxN) * 0.06;   // slow lazy baton
+      myN += (tmyN - myN) * 0.06;
+
+      const amp = cfg.am * (1 + scrollP * cfg.cr * 1.4);
+      const spd = cfg.sp * (1 + scrollP * cfg.cr * 0.6);
+      const glow = cfg.gl * (1 + scrollP * cfg.cr * 0.9);
+      const peak = cfg.pk;          // peak sharpness exponent driver
+
+      if (barState){
+        const tt = t * spd;
+        const n = barState.n;
+        const H = barState.aHeight;
+        for (let i = 0; i < n; i++){
+          const x = i / Math.max(n - 1, 1);          // 0..1 across width
+          // layered low-freq travelling waves so neighbours correlate into rolling peaks/valleys
+          let w =
+              Math.sin(x * 6.2 + tt * 1.10) * 0.55 +
+              Math.sin(x * 11.0 - tt * 0.70 + 1.3) * 0.30 +
+              Math.sin(x * 3.1 + tt * 0.43) * 0.40 +
+              Math.sin(x * 18.0 + tt * 1.7 + barState.phase[i]) * 0.14;   // per-bar shimmer detail
+          w = (w + 1.6) / 3.2;                         // -> roughly 0..1
+          w = Math.max(0, Math.min(1, w));
+          // peak sharpness: push the envelope toward sharper crests as pk rises
+          let env = Math.pow(w, 0.7 + (peak - 1) * 0.9 + 0.0);
+          // conduct swell: a travelling bump near the cursor x lifts nearby bars
+          const dx = x - mxN;
+          const bump = Math.exp(-(dx * dx) / 0.012);   // narrow travelling hill
+          env += bump * harmony * cfg.cd * 0.9 * (0.4 + myN * 0.9);
+          let target = (0.18 + env * 1.05) * amp;
+          target = Math.min(target, 1.5);
+          // smooth toward target (spring) so bars rise/fall continuously, never snap
+          H[i] += (target - H[i]) * 0.18;
+        }
+        barState.attr.needsUpdate = true;
+
+        const u = bars.material.uniforms;
+        u.uTime.value = t;
+        u.uGlow.value = glow;
+      }
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

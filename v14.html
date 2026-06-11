@@ -35,14 +35,14 @@
 
   <div id="controls">
     <div class="title-row"><span class="title">Conductor · Ribbons II</span><button id="refreshBtn">↻ Refresh</button></div>
-    <div class="ctrl"><div class="row"><span>Ribbons</span><span class="val" id="rbVal">11</span></div><input id="rbSlider" type="range" min="9" max="14" step="1" value="11" /></div>
+    <div class="ctrl"><div class="row"><span>Particles</span><span class="val" id="rbVal">24k</span></div><input id="rbSlider" type="range" min="8" max="48" step="2" value="24" /></div>
     <div class="ctrl"><div class="row"><span>Flow speed</span><span class="val" id="spVal">100%</span></div><input id="spSlider" type="range" min="20" max="300" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Chaos (idle)</span><span class="val" id="chVal">55%</span></div><input id="chSlider" type="range" min="0" max="100" step="1" value="55" /></div>
     <div class="ctrl"><div class="row"><span>Conduct strength</span><span class="val" id="cdVal">120%</span></div><input id="cdSlider" type="range" min="0" max="300" step="5" value="120" /></div>
     <div class="ctrl"><div class="row"><span>Amplitude</span><span class="val" id="amVal">100%</span></div><input id="amSlider" type="range" min="30" max="250" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Crescendo (scroll)</span><span class="val" id="crVal">120%</span></div><input id="crSlider" type="range" min="0" max="300" step="5" value="120" /></div>
-    <div class="ctrl"><div class="row"><span>Thickness</span><span class="val" id="thVal">100%</span></div><input id="thSlider" type="range" min="30" max="250" step="5" value="100" /></div>
-    <div class="ctrl"><div class="row"><span>Gloss</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="0" max="200" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Embers</span><span class="val" id="thVal">100%</span></div><input id="thSlider" type="range" min="0" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="0" max="200" step="5" value="100" /></div>
   </div>
 
   <script type="module">
@@ -63,11 +63,13 @@
     setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
 
     // ---------- controls ----------
+    // rb = particle count (in thousands), sp = flow speed, ch = idle chaos/turbulence,
+    // cd = conduct strength, am = amplitude, cr = crescendo (scroll), th = ember amount, gl = glow
     const $ = id => document.getElementById(id);
     const sliders = { rb:$('rbSlider'), sp:$('spSlider'), ch:$('chSlider'), cd:$('cdSlider'), am:$('amSlider'), cr:$('crSlider'), th:$('thSlider'), gl:$('glSlider') };
     const vals    = { rb:$('rbVal'),    sp:$('spVal'),    ch:$('chVal'),    cd:$('cdVal'),    am:$('amVal'),    cr:$('crVal'),    th:$('thVal'),    gl:$('glVal') };
-    const cfg = { rb:11, sp:1, ch:0.55, cd:1.2, am:1, cr:1.2, th:1, gl:1 };
-    const fmt = { rb:v=>v, sp:v=>v+'%', ch:v=>v+'%', cd:v=>v+'%', am:v=>v+'%', cr:v=>v+'%', th:v=>v+'%', gl:v=>v+'%' };
+    const cfg = { rb:24, sp:1, ch:0.55, cd:1.2, am:1, cr:1.2, th:1, gl:1 };
+    const fmt = { rb:v=>v+'k', sp:v=>v+'%', ch:v=>v+'%', cd:v=>v+'%', am:v=>v+'%', cr:v=>v+'%', th:v=>v+'%', gl:v=>v+'%' };
     const scale = { rb:v=>+v, sp:v=>v/100, ch:v=>v/100, cd:v=>v/100, am:v=>v/100, cr:v=>v/100, th:v=>v/100, gl:v=>v/100 };
 
     const KEY = 'rda_v14_ctrls';
@@ -76,7 +78,7 @@
     Object.keys(sliders).forEach(k => {
       sliders[k].addEventListener('input', () => {
         cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
-        if (k === 'rb' || k === 'th') rebuild();
+        if (k === 'rb') rebuild();   // changing particle count rebuilds the cloud
         persist();
       });
     });
@@ -97,108 +99,171 @@
     function worldSize(){ const h = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov)/2) * camera.position.z; return { w: h * camera.aspect, h }; }
 
     const COLORS = ['#d73624', '#ff6a34', '#e8484f', '#ff5a8a', '#f0457a', '#c0277e', '#96077e'];   // warm RDA reds/oranges/pinks/magentas — no blue
+    const PALETTE = COLORS.map(c => new THREE.Color(c));
 
-    // Thick glass ribbons: the soundwave displacement drives the centreline, while the
-    // ribbon's THICKNESS undulates thin<->thick along its length (a slow travelling twist),
-    // so each ribbon reads like a glass band turning edge-on then face-on. No moving glints.
+    // ---------------------------------------------------------------------------
+    // PARTICLE SOUNDWAVE
+    // Thousands of fine soft points flow horizontally and stack into undulating
+    // soundwave ridges. The same multi-sine displacement (personal + shared waves)
+    // that drove the old ribbons now drives each particle's Y. A dense horizontal
+    // band forms the wave body; a thinner upper scatter drifts above like embers.
+    // Each point gets a soft round additive glow via gl_PointCoord in the fragment.
+    // ---------------------------------------------------------------------------
     const VERT = `
-      uniform float uTime,uAmp,uH,uFreqP,uSpeedP,uPhase,uFreqS,uSpeedS,uBaseY,uBend,uTwFreq,uTwSpd,uSeed;
-      uniform vec2 uMouse;
-      varying vec2 vUv; varying float vThick;
+      precision highp float;
+      uniform float uTime, uAmp, uH, uPixelRatio, uConduct, uChaos, uEmber, uBandH, uWorldW;
+      uniform vec2  uMouse;
+      attribute float aX;        // base x across the field (-0.5..0.5 of width)
+      attribute float aRow;      // -1..1 position within the band (0 = crest centreline)
+      attribute float aLayer;    // depth layer 0..1
+      attribute float aSeed;     // per-particle random
+      attribute float aEmber;    // 0 = body particle, 1 = ember (upper scatter)
+      attribute float aSize;     // base point size multiplier
+      attribute vec3  aColor;    // per-particle base colour
+      varying vec3  vColor;
+      varying float vBright;
+      varying float vEmber;
+
+      // cheap hash-based smooth value for drift
+      float n1(float x){ return sin(x*12.9898)*43758.5453; }
+
       void main(){
-        vUv = uv;
-        vec3 pos = position;
-        float x = pos.x;
-        float v0 = pos.y;                       // cross-section offset around the ribbon centreline
-        float personal = sin(x*uFreqP + uTime*uSpeedP + uPhase) + 0.5*sin(x*uFreqP*2.3 + uTime*uSpeedP*1.37 + uPhase*2.1);
-        float shared   = sin(x*uFreqS + uTime*uSpeedS)          + 0.5*sin(x*uFreqS*1.71 + uTime*uSpeedS*1.21);
-        float w = mix(personal, shared, uH);
-        float center = uAmp * w * 0.6;
+        float x = aX * uWorldW;            // world x across the screen
+        float t = uTime;
+
+        // ---- the soundwave: personal + shared multi-sine (warm-stacked ridges) ----
+        float fP = 0.85 + fract(aSeed*1.7)*0.9;          // personal frequency per particle group
+        float sP = 0.5  + fract(aSeed*3.1)*0.7;          // personal speed
+        float ph = aSeed * 6.2831;
+        float personal = sin(x*fP + t*sP + ph) + 0.5*sin(x*fP*2.3 + t*sP*1.37 + ph*2.1);
+        float shared   = sin(x*1.0 + t*0.6)    + 0.5*sin(x*1.71 + t*0.6*1.21);
+        float w = mix(personal, shared, uH);             // harmony blends toward the shared wave
+        float crest = uAmp * w * 0.6;                    // the ridge line for this column
+
+        // ---- stack the band around the ridge line; rows fan out vertically ----
+        float band = aRow * uBandH * (aEmber > 0.5 ? 2.4 : 1.0);   // embers reach higher
+        float y = crest + band;
+
+        // ---- gentle per-particle drift / turbulence so the cloud flows (idle chaos) ----
+        float drift = uChaos * (aEmber > 0.5 ? 0.55 : 0.28);
+        y += sin(x*1.9 + t*(0.7+sP) + aSeed*9.0) * 0.10 * drift;
+        y += sin(t*0.9 + aSeed*40.0) * 0.06 * drift;       // slow vertical shimmer
+        x += sin(t*0.5 + aSeed*20.0 + aRow*3.0) * 0.08 * drift;  // lateral sway
+
+        // ---- mouse conduct: lift / swell particles near the cursor column ----
         float infl = exp(-pow(x - uMouse.x, 2.0) / 2.6);
-        center += infl * (uMouse.y - uBaseY) * uBend;
-        // TWIST: thickness pinches thin and bulges thick along the length, travelling slowly
-        float a1 = 0.5 + 0.5*sin(x*uTwFreq + uTime*uTwSpd + uSeed*1.7);
-        float a2 = 0.5 + 0.5*sin(x*uTwFreq*0.53 - uTime*uTwSpd*0.6 + uSeed);
-        float tw = 0.06 + 0.94 * pow(a1*0.62 + a2*0.38, 1.7);
-        vThick = tw;
-        pos.y = center + v0 * tw;               // very thin sections <-> very thick sections
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        y += infl * (uMouse.y - crest) * uConduct * 0.55 * (1.0 - 0.4*aEmber);
+        float swell = 1.0 + infl * uConduct * 0.9;         // points puff up under the baton
+
+        float z = (aLayer - 0.5) * 2.4;                    // spread across depth for parallax layering
+
+        vec4 mv = modelViewMatrix * vec4(x, y, z, 1.0);
+        gl_Position = projectionMatrix * mv;
+
+        // ---- brightness: hottest on the crest centreline, dimmer toward band edges ----
+        float toCrest = 1.0 - clamp(abs(aRow), 0.0, 1.0);   // 1 at centreline -> 0 at band edge
+        float bodyBright = 0.35 + 0.85 * toCrest;
+        float emberBright = mix(0.45, 0.0, clamp(abs(aRow), 0.0, 1.0)) * uEmber;  // embers fade upward
+        vBright = mix(bodyBright, emberBright, aEmber);
+        vEmber = aEmber;
+        vColor = aColor;
+
+        // ---- size: bigger/brighter near crest, tiny for high embers; perspective attenuated ----
+        float sz = aSize * mix(1.0, 0.55, aEmber) * (0.55 + 0.9 * toCrest) * swell;
+        gl_PointSize = sz * uPixelRatio * (300.0 / max(-mv.z, 0.1));
       }`;
+
     const FRAG = `
-      uniform vec3 uColor; uniform vec3 uColor2; uniform float uAlpha; uniform float uGloss;
-      varying vec2 vUv; varying float vThick;
+      precision highp float;
+      uniform float uGlow;
+      varying vec3  vColor;
+      varying float vBright;
+      varying float vEmber;
       void main(){
-        // rounded glassy cross-section across the ribbon's height: fat lit middle, thin rims
-        float v = vUv.y * 2.0 - 1.0;
-        float round = sqrt(max(1.0 - v*v, 0.0));
-
-        // colour shifts along the length of the ribbon
-        vec3 body = mix(uColor, uColor2, smoothstep(0.05, 0.95, vUv.x));
-        vec3 col = body * (0.40 + 0.78 * round);             // voluminous lit body
-
-        // bright glass rim — warm, not blue
-        float rim = pow(1.0 - round, 2.2);
-        col += body * rim * 0.85;
-        col += vec3(1.0, 0.93, 0.88) * rim * 0.22 * uGloss;  // warm edge light (Gloss controls it)
-
-        // soft STATIC core sheen on the upper body — glassy, no movement
-        float core = smoothstep(0.55, 1.0, round) * (0.5 + 0.5 * v);
-        col += vec3(1.0, 0.95, 0.92) * core * 0.30 * uGloss;
-
-        // thin twisted sections read brighter / edge-lit, like glass turned edge-on
-        float edge = 1.0 - vThick;
-        col += body * edge * 0.35;
-
-        // alpha: thick body stays rich; rims and very thin sections fade so layers overlap as glass
-        float a = (0.34 + 0.66 * round) * uAlpha;
-        a *= (0.42 + 0.58 * vThick);
-        gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+        // soft round glow: bright core -> transparent edge
+        vec2 c = gl_PointCoord - vec2(0.5);
+        float d = length(c);
+        if (d > 0.5) discard;
+        float core = smoothstep(0.5, 0.0, d);          // 0 at rim, 1 at centre
+        float soft = pow(core, 1.6);                   // fibrous soft falloff
+        float a = soft * vBright * uGlow;
+        // warm hot core lift on the brightest body particles
+        vec3 col = vColor + vec3(0.30, 0.12, 0.05) * pow(core, 3.0) * vBright * (1.0 - vEmber);
+        gl_FragColor = vec4(col * (0.6 + 0.7*core), a);
       }`;
 
-    let ribbons = [];
+    let points = null;
+    const uniforms = {
+      uTime:{value:0}, uAmp:{value:1}, uH:{value:0}, uPixelRatio:{value:Math.min(devicePixelRatio,2)},
+      uConduct:{value:1.2}, uChaos:{value:0.55}, uEmber:{value:1}, uBandH:{value:0.34},
+      uWorldW:{value:14}, uMouse:{value:new THREE.Vector2(0,0)}, uGlow:{value:1}
+    };
+
     function rebuild(){
-      ribbons.forEach(r => { scene.remove(r.mesh); r.mesh.geometry.dispose(); r.mesh.material.dispose(); });
-      ribbons = [];
+      if (points){ scene.remove(points); points.geometry.dispose(); points.material.dispose(); points = null; }
       const ws = worldSize();
-      const n = cfg.rb;
-      const built = [];
-      for (let i = 0; i < n; i++){
-        const t = n === 1 ? 0.5 : i / (n - 1);
-        const baseY = (t - 0.5) * 3.4;                              // vertical band the ribbons live in
-        // LARGE base height (0.9–1.9 world units), varied per-ribbon, scaled by Thickness control
-        const th = (0.95 + Math.abs(Math.sin(i * 1.9 + 0.6)) * 0.95) * cfg.th;
-        // depth: spread across z so thick ribbons cross over and layer like stacked glass
-        const z = ((i % 2 === 0 ? 1 : -1) * (0.35 + ((i * 7) % 5) / 5 * 0.85)) ;
-        const geo = new THREE.PlaneGeometry(ws.w * 1.45, th, 260, 1);
-        const mat = new THREE.ShaderMaterial({
-          vertexShader: VERT, fragmentShader: FRAG,
-          transparent: true, depthWrite: false, depthTest: false,
-          blending: THREE.NormalBlending,
-          uniforms: {
-            uTime:{value:0}, uAmp:{value:1}, uH:{value:0},
-            uFreqP:{value:0.85 + (i % 5) * 0.2}, uSpeedP:{value:0.5 + ((i * 37) % 10) / 10 * 0.7},
-            uPhase:{value:i * 1.31}, uFreqS:{value:1.0}, uSpeedS:{value:0.6},
-            uBaseY:{value:baseY}, uBend:{value:0}, uMouse:{value:new THREE.Vector2(0, 0)},
-            uTwFreq:{value:0.7 + (i % 4) * 0.22}, uTwSpd:{value:0.35 + ((i * 13) % 7) / 7 * 0.4},
-            uColor:{value:new THREE.Color(COLORS[i % COLORS.length])},
-            uColor2:{value:new THREE.Color(COLORS[(i + 2) % COLORS.length])},
-            uAlpha:{value:0.82}, uGloss:{value:1}, uSeed:{value:i * 2.137}
-          }
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(0, baseY, z);
-        mesh.renderOrder = 0;                                       // set after z-sort below
-        built.push({ mesh, baseY, z });
+      uniforms.uWorldW.value = ws.w * 1.5;               // overscan so the field fills the edges
+
+      const N = Math.round(cfg.rb * 1000);
+      const EMBER_FRAC = 0.30;                            // share of particles that are upper-scatter embers
+      const aX = new Float32Array(N), aRow = new Float32Array(N), aLayer = new Float32Array(N);
+      const aSeed = new Float32Array(N), aEmber = new Float32Array(N), aSize = new Float32Array(N);
+      const aColor = new Float32Array(N * 3);
+
+      for (let i = 0; i < N; i++){
+        const ember = Math.random() < EMBER_FRAC ? 1 : 0;
+        aX[i]    = Math.random() - 0.5;                  // even horizontal spread
+        aLayer[i]= Math.random();
+        aSeed[i] = Math.random();
+        aEmber[i]= ember;
+
+        if (ember){
+          // embers drift ABOVE the band: biased upward, sparse, small
+          aRow[i] = 0.25 + Math.random() * Math.random() * 1.4;   // squared bias -> sparser higher up
+          aSize[i] = 1.0 + Math.random() * 1.6;
+        } else {
+          // body particles cluster toward the crest centreline (denser/brighter middle)
+          // triangular-ish distribution: mean of two uniforms hugs 0
+          const r = (Math.random() + Math.random() - 1.0);        // -1..1, peaked at 0
+          aRow[i] = r;
+          aSize[i] = 1.6 + Math.random() * 2.2;
+        }
+
+        // colour shifts across x (hot reds/oranges -> magenta) plus brightness on the crest
+        const cpos = (aX[i] + 0.5) * (PALETTE.length - 1) + (Math.random()-0.5)*0.9;
+        const ci = Math.max(0, Math.min(PALETTE.length - 2, Math.floor(cpos)));
+        const f = Math.max(0, Math.min(1, cpos - ci));
+        const c0 = PALETTE[ci], c1 = PALETTE[ci + 1];
+        aColor[i*3]   = c0.r + (c1.r - c0.r) * f;
+        aColor[i*3+1] = c0.g + (c1.g - c0.g) * f;
+        aColor[i*3+2] = c0.b + (c1.b - c0.b) * f;
       }
-      // sort back -> front so transparent overlaps layer correctly (no depth buffer in use)
-      built.sort((a, b) => a.z - b.z);
-      built.forEach((r, idx) => { r.mesh.renderOrder = idx; scene.add(r.mesh); ribbons.push(r); });
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));  // dummy; real pos built in shader
+      geo.setAttribute('aX',     new THREE.BufferAttribute(aX, 1));
+      geo.setAttribute('aRow',   new THREE.BufferAttribute(aRow, 1));
+      geo.setAttribute('aLayer', new THREE.BufferAttribute(aLayer, 1));
+      geo.setAttribute('aSeed',  new THREE.BufferAttribute(aSeed, 1));
+      geo.setAttribute('aEmber', new THREE.BufferAttribute(aEmber, 1));
+      geo.setAttribute('aSize',  new THREE.BufferAttribute(aSize, 1));
+      geo.setAttribute('aColor', new THREE.BufferAttribute(aColor, 3));
+      geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0,0,0), 100);   // never frustum-cull
+
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: VERT, fragmentShader: FRAG, uniforms,
+        transparent: true, depthWrite: false, depthTest: false,
+        blending: THREE.AdditiveBlending
+      });
+      points = new THREE.Points(geo, mat);
+      scene.add(points);
     }
 
     function layout(){
       renderer.setSize(innerWidth, innerHeight, false);
       camera.aspect = innerWidth / innerHeight;
       camera.updateProjectionMatrix();
+      uniforms.uPixelRatio.value = Math.min(devicePixelRatio, 2);
       rebuild();
     }
     window.addEventListener('resize', layout);
@@ -245,15 +310,17 @@
       const amp = cfg.am * (1 + scrollP * cfg.cr * 1.6);
       const spd = cfg.sp * (1 + scrollP * cfg.cr * 0.7);
 
-      for (const r of ribbons){
-        const u = r.mesh.material.uniforms;
-        u.uTime.value = t * spd;
-        u.uAmp.value = amp;
-        u.uH.value = h;
-        u.uBend.value = cfg.cd * 0.55;
-        u.uMouse.value.set(mxW, myW);
-        u.uGloss.value = cfg.gl;
-      }
+      uniforms.uTime.value    = t * spd;
+      uniforms.uAmp.value     = amp;
+      uniforms.uH.value       = h;
+      uniforms.uConduct.value = cfg.cd;
+      // crescendo also energises the cloud: more turbulence + spread under scroll
+      uniforms.uChaos.value   = cfg.ch * (1 + scrollP * cfg.cr * 0.8);
+      uniforms.uEmber.value   = cfg.th;
+      uniforms.uBandH.value   = 0.34 * (1 + scrollP * cfg.cr * 0.5);
+      uniforms.uMouse.value.set(mxW, myW);
+      uniforms.uGlow.value    = cfg.gl;
+
       renderer.render(scene, camera);
       requestAnimationFrame(tick);
     }
