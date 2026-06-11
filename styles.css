@@ -134,11 +134,7 @@ body.scrubmode .scrub-sec:not(.auto-sec) .vline { transition: none !important; }
 #variant-menu .nav-drop:hover .drop-list, #variant-menu .nav-drop.open .drop-list { display: flex; }
 #variant-menu .drop-list a { padding: 8px 12px; border-radius: 8px; }
 
-#controls { position: fixed; top: 58px; right: 16px; z-index: 12; width: 232px; padding: 16px 16px 14px; background: rgba(16,18,22,.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; font-size: 12px; color: rgba(255,255,255,.85); user-select: none;
-  display: none; max-height: calc(100vh - 74px); overflow-y: auto; }
-body.ctrls-open #controls { display: block; }
-#ctrlToggle { position: fixed; top: 16px; right: 16px; z-index: 13; appearance: none; border: 1px solid rgba(255,255,255,.18); background: rgba(16,18,22,.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #fff; border-radius: 9px; font: 600 12px/1 inherit; font-family: inherit; padding: 9px 13px; cursor: pointer; transition: background .18s; }
-#ctrlToggle:hover { background: rgba(255,255,255,.14); }
+#controls { position: fixed; top: 16px; right: 16px; z-index: 12; width: 232px; padding: 16px 16px 14px; background: rgba(16,18,22,.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; font-size: 12px; color: rgba(255,255,255,.85); user-select: none; }
 #controls .title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 #controls .title { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.4); }
 #controls #refreshBtn { appearance: none; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; border-radius: 7px; font-size: 11px; padding: 4px 9px; cursor: pointer; transition: all .18s; }

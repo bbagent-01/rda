@@ -205,8 +205,7 @@ function layoutGL(){
 let lastVT = 0, lastAdvance = 0;
 function tick(now){
   prevNow = now;
-  // v10: the video never plays on its own — it's driven entirely by scroll (scrub branch below)
-  if (variant >= 4 && variant !== 10){
+  if (variant >= 4){
     scrollVel *= 0.92;
     if (src2.paused) src2.play().catch(()=>{});
     // cap the boost — extreme playbackRates stall the decoder (the "freeze" bug)
@@ -219,7 +218,6 @@ function tick(now){
       src2.play().catch(()=>{});
     }
   } else if (ready){
-    if (variant === 10 && !src2.paused) src2.pause();
     const dur = activeDuration();
     if (dur){
       curTime += (targetTime - curTime) * SCRUB_EASE;
@@ -291,15 +289,15 @@ function onMouse(e){
 function prime(){
   [v1video, src].forEach(v => { const p = v.play(); if (p && p.then) p.then(()=>v.pause()).catch(()=>{}); });
   src2.loop = true;
-  if (variant >= 4 && variant !== 10) src2.play().catch(()=>{});
-  else { const p = src2.play(); if (p && p.then) p.then(()=>src2.pause()).catch(()=>{}); }   // prime decoder, stay paused (scrub)
+  if (variant >= 4) src2.play().catch(()=>{});
+  else { const p = src2.play(); if (p && p.then) p.then(()=>src2.pause()).catch(()=>{}); }
 }
 src.addEventListener('loadedmetadata', () => { computeTarget(); curTime = targetTime; ready = true; prime(); });
-src2.addEventListener('loadedmetadata', () => { computeTarget(); if (variant === 10){ curTime = targetTime; ready = true; } prime(); });
+src2.addEventListener('loadedmetadata', () => { computeTarget(); prime(); });
 window.addEventListener('touchstart', prime, { once:true, passive:true });
 window.addEventListener('click', prime, { once:true });
 // resume the background video whenever the tab/window comes back into focus
-function resumeVideo(){ scrollVel = 0; if (variant >= 4 && variant !== 10 && src2.paused) src2.play().catch(()=>{}); }
+function resumeVideo(){ scrollVel = 0; if (variant >= 4 && src2.paused) src2.play().catch(()=>{}); }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeVideo(); });
 window.addEventListener('focus', resumeVideo);
 window.addEventListener('pageshow', resumeVideo);
@@ -458,7 +456,7 @@ function applyVariant(v){
     if (variant >= 2) layoutGL();
   }
   src2.loop = true;
-  if (variant >= 4 && variant !== 10) src2.play().catch(()=>{});
+  if (variant >= 4) src2.play().catch(()=>{});
   else { src2.pause(); const dur = activeDuration(); const t = Math.min(Math.max(curTime,0), Math.max(dur-0.04,0)); activeVideos().forEach(v => v.currentTime = t); }
 }
 
