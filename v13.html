@@ -53,6 +53,14 @@
     <div class="ctrl"><div class="row"><span>Iris size</span><span class="val" id="isVal">100%</span></div><input id="isSlider" type="range" min="30" max="200" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Iris spin</span><span class="val" id="ipVal">100%</span></div><input id="ipSlider" type="range" min="0" max="300" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Mouse growth</span><span class="val" id="mgVal">100%</span></div><input id="mgSlider" type="range" min="0" max="250" step="5" value="100" /></div>
+    <!-- exact gradient colour stops: resting → mid → peak growth -->
+    <div class="ctrl"><div class="row"><span>Gradient · rest → mid → peak</span></div>
+      <div class="swatches">
+        <input id="cASlider" type="color" value="#330573" />
+        <input id="cBSlider" type="color" value="#ff730a" />
+        <input id="cCSlider" type="color" value="#ff29b8" />
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -94,6 +102,12 @@
     suppress = false;
     $('refreshBtn').addEventListener('click', () => location.reload());
 
+    // ---------- gradient stops (exact colour control, fed straight to the shader) ----------
+    const hexToVec = h => new THREE.Vector3(
+      parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
+    const GRAD_DEF = { a: '#330573', b: '#ff730a', c: '#ff29b8' };   // = old deep-purple / orange / pink ramp
+    const grad = { a: hexToVec(GRAD_DEF.a), b: hexToVec(GRAD_DEF.b), c: hexToVec(GRAD_DEF.c) };
+
     // ---------- scene ----------
     const canvas = $('fx');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -102,7 +116,7 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 
-    const H = 10.0;                       // long shards — lower ends bleed off the bottom by default
+    const H = 8.0;                        // match v9 amphitheater — most of each shard hides below the frame
     const BASE_Y = -6.5;                  // bases sunk well below the bottom edge
     const RISE_BASE = 1.8;                // rise multiplier at 100%
     const R0 = 5.0, RSTEP = 1.6;          // first-row radius + row spacing
@@ -136,14 +150,12 @@
     // GROWTH AMOUNT ONLY (vGrow), so idle bobbing/swaying never shifts hue.
     const FRAG = `
       uniform float uGlow;
+      uniform vec3 uColA, uColB, uColC;   // gradient stops: resting / mid / peak (live-controllable)
       varying float vGrow; varying float vH; varying vec3 vN; varying vec3 vV;
       vec3 ramp(float t){
         t = clamp(t, 0.0, 1.0);
-        vec3 c0 = vec3(0.20, 0.02, 0.45);   // deep purple (resting)
-        vec3 c1 = vec3(1.00, 0.45, 0.04);   // bright orange
-        vec3 c2 = vec3(1.00, 0.16, 0.72);   // bright pink
-        if (t < 0.5) return mix(c0, c1, t / 0.5);
-        return mix(c1, c2, (t - 0.5) / 0.5);
+        if (t < 0.5) return mix(uColA, uColB, t / 0.5);
+        return mix(uColB, uColC, (t - 0.5) / 0.5);
       }
       void main(){
         vec3 n = normalize(vN); vec3 v = normalize(vV);
@@ -167,7 +179,7 @@
       const cols = Math.max(4, Math.round(cfg.dn * cfg.ct));   // shard count = density × count knob
       const count = rows * cols;
 
-      const geo = new THREE.CylinderGeometry(0.15, 0.15, H, 16, 1);
+      const geo = new THREE.CylinderGeometry(0.17, 0.17, H, 18, 1);
       geo.translate(0, H / 2, 0);   // base on the ground
 
       riseArr = new Float32Array(count);
@@ -205,7 +217,8 @@
 
       const mat = new THREE.ShaderMaterial({
         vertexShader: VERT, fragmentShader: FRAG, transparent: true, side: THREE.DoubleSide,
-        uniforms: { uRiseScale: { value: RISE_BASE }, uH: { value: H }, uGlow: { value: 1 } }
+        uniforms: { uRiseScale: { value: RISE_BASE }, uH: { value: H }, uGlow: { value: 1 },
+          uColA: { value: grad.a.clone() }, uColB: { value: grad.b.clone() }, uColC: { value: grad.c.clone() } }
       });
       mesh = new THREE.InstancedMesh(geo, mat, count);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -222,6 +235,22 @@
     window.addEventListener('resize', layout);
     layout();
     rebuild();
+
+    // ---------- gradient colour controls (live) ----------
+    const GKEY = 'rda_v13_grad';
+    const cIn = { a: $('cASlider'), b: $('cBSlider'), c: $('cCSlider') };
+    function applyGrad(){
+      if (!mesh) return;
+      mesh.material.uniforms.uColA.value.copy(grad.a);
+      mesh.material.uniforms.uColB.value.copy(grad.b);
+      mesh.material.uniforms.uColC.value.copy(grad.c);
+    }
+    try { const g = JSON.parse(localStorage.getItem(GKEY)); if (g) ['a','b','c'].forEach(k => { if (g[k]) { cIn[k].value = g[k]; grad[k].copy(hexToVec(g[k])); } }); } catch(e){}
+    applyGrad();
+    ['a','b','c'].forEach(k => cIn[k].addEventListener('input', () => {
+      grad[k].copy(hexToVec(cIn[k].value)); applyGrad();
+      try { localStorage.setItem(GKEY, JSON.stringify({ a:cIn.a.value, b:cIn.b.value, c:cIn.c.value })); } catch(e){}
+    }));
 
     // ---------- mouse ----------
     const Q = new URLSearchParams(location.search);
@@ -290,8 +319,13 @@
       const lcx = (nx * 0.5) / cfg.sz;
       const lcy = (3.55 - cfg.sp) / cfg.sz;
       const lcz = -2.0 / cfg.sz;
-      const cu = ss(clamp01((ti - 0.2) / 0.6));            // z-spread of the formed ring
-      const formed = ss(clamp01((ti - 0.9) / 0.1));        // ring fully closed
+      // shards file UPRIGHT into a line along the ring's bottom edge (sliding sideways), then the
+      // line CURLS up and wraps into the circle — each shard only ever tilts with the curve tangent,
+      // so it never spins in place (motion always stays perpendicular to the shard's length)
+      const ax = lcx, ay = lcy - Rl;
+      const cu = ss(clamp01((ti - 0.42) / 0.58));          // straight line -> closed circle
+      const curv = 0.02 + 0.98 * cu;
+      const formed = ss(clamp01((ti - 0.92) / 0.08));      // ring fully closed
       spinPhase += dt * 0.06 * formed;
       const sOff = ((spinPhase + st.spin * cfg.ip) % (Math.PI * 2)) * formed;
 
@@ -334,27 +368,19 @@
         riseArr[i] = Math.min(idle + grows[i], 1.3);
         growArr[i] = Math.min(grows[i], 1.0);
 
-        // ---- placement: amphitheater field -> iris ring (moving RIGHT and DOWN, not curling up) ----
-        const ix = lcx + Math.cos(ang) * Rl * p.iR;
-        const iy = lcy + Math.sin(ang) * Rl * p.iR;
-        const iz = lcz + (p.iZ / cfg.sz) * cu;
-        const fx0 = p.x * cfg.wd, fy0 = p.by, fz0 = p.z;    // scene WIDTH stretches the field horizontally
-        const u = li, omu = 1 - u;
-        // quadratic bezier with the control point pulled toward lower-RIGHT
-        const cxp = (fx0 + ix) * 0.5 + Rl * 0.55;
-        const cyp = (fy0 + iy) * 0.5 - Rl * 0.75;
-        const czp = (fz0 + iz) * 0.5;
-        _p.set(
-          omu * omu * fx0 + 2 * omu * u * cxp + u * u * ix,
-          omu * omu * fy0 + 2 * omu * u * cyp + u * u * iy,
-          omu * omu * fz0 + 2 * omu * u * czp + u * u * iz
-        );
-        // upright in the field; rotates so the tip points INWARD once in the ring
-        _e.set(0, 0, u * (ang + Math.PI / 2));
+        // ---- placement: amphitheater field -> curling line -> iris ring (no in-place spin) ----
+        const fx0 = p.x * cfg.wd, fy0 = p.by, fz0 = p.z;   // scene WIDTH stretches the field horizontally
+        const Re = (Rl * p.iR) / curv;                     // huge radius (≈straight line) -> Rl (closed circle)
+        const ph = curv * (p.iA + sOff);                   // arc sweep: tiny early, full angle once closed
+        const lx = ax + Math.sin(ph) * Re;
+        const ly = ay + (1 - Math.cos(ph)) * Re;
+        const lz = lcz + (p.iZ / cfg.sz) * cu;
+        _p.set(fx0 + (lx - fx0) * li, fy0 + (ly - fy0) * li, fz0 + (lz - fz0) * li);
+        _e.set(0, 0, ph * li);                             // upright in the field; tilts only with the curve
         _q.setFromEuler(_e);
 
         const syIris = (Rl * 0.42 * p.iL) / H;
-        const sy = p.lenBase + (syIris - p.lenBase) * li;
+        const sy = 1.0 + (syIris - 1.0) * li;              // uniform v9-length field -> iris length
         _s.set(1, sy, 1);
         _m.compose(_p, _q, _s);
         mesh.setMatrixAt(i, _m);
