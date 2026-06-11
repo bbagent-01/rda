@@ -35,14 +35,24 @@
 
   <div id="controls">
     <div class="title-row"><span class="title">Conductor · Ribbons II</span><button id="refreshBtn">↻ Refresh</button></div>
-    <div class="ctrl"><div class="row"><span>Particles</span><span class="val" id="rbVal">100k</span></div><input id="rbSlider" type="range" min="60" max="150" step="10" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Particles</span><span class="val" id="rbVal">100k</span></div><input id="rbSlider" type="range" min="60" max="300" step="10" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Waves</span><span class="val" id="wvVal">8</span></div><input id="wvSlider" type="range" min="3" max="14" step="1" value="8" /></div>
     <div class="ctrl"><div class="row"><span>Flow speed</span><span class="val" id="spVal">100%</span></div><input id="spSlider" type="range" min="20" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Drift</span><span class="val" id="drVal">40%</span></div><input id="drSlider" type="range" min="0" max="300" step="5" value="40" /></div>
     <div class="ctrl"><div class="row"><span>Chaos</span><span class="val" id="chVal">50%</span></div><input id="chSlider" type="range" min="0" max="100" step="1" value="50" /></div>
     <div class="ctrl"><div class="row"><span>Conduct strength</span><span class="val" id="cdVal">120%</span></div><input id="cdSlider" type="range" min="0" max="300" step="5" value="120" /></div>
     <div class="ctrl"><div class="row"><span>Amplitude</span><span class="val" id="amVal">120%</span></div><input id="amSlider" type="range" min="30" max="250" step="5" value="120" /></div>
     <div class="ctrl"><div class="row"><span>Crescendo</span><span class="val" id="crVal">120%</span></div><input id="crSlider" type="range" min="0" max="300" step="5" value="120" /></div>
     <div class="ctrl"><div class="row"><span>Spikes</span><span class="val" id="thVal">100%</span></div><input id="thSlider" type="range" min="0" max="250" step="5" value="100" /></div>
     <div class="ctrl"><div class="row"><span>Glow</span><span class="val" id="glVal">130%</span></div><input id="glSlider" type="range" min="0" max="200" step="5" value="130" /></div>
+    <div class="ctrl"><div class="row"><span>Vertical position</span><span class="val" id="psVal">-17</span></div><input id="psSlider" type="range" min="-90" max="20" step="1" value="-17" /></div>
+    <div class="ctrl"><div class="row"><span>Wave colours</span></div>
+      <div class="swatches">
+        <input id="cASlider" type="color" value="#ff6a34" />
+        <input id="cBSlider" type="color" value="#f0457a" />
+        <input id="cCSlider" type="color" value="#96077e" />
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -62,31 +72,8 @@
     revealItems.forEach((el, i) => el.style.transitionDelay = (i * 70) + 'ms');
     setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
 
-    // ---------- controls ----------
-    // rb = particle count (in thousands), sp = flow speed, ch = fibrous chaos/shimmer,
-    // cd = conduct strength, am = amplitude, cr = crescendo (scroll), th = spike streaks, gl = glow
-    const $ = id => document.getElementById(id);
-    const sliders = { rb:$('rbSlider'), sp:$('spSlider'), ch:$('chSlider'), cd:$('cdSlider'), am:$('amSlider'), cr:$('crSlider'), th:$('thSlider'), gl:$('glSlider') };
-    const vals    = { rb:$('rbVal'),    sp:$('spVal'),    ch:$('chVal'),    cd:$('cdVal'),    am:$('amVal'),    cr:$('crVal'),    th:$('thVal'),    gl:$('glVal') };
-    const cfg = { rb:100, sp:1, ch:0.5, cd:1.2, am:1.2, cr:1.2, th:1, gl:1.3 };
-    const fmt = { rb:v=>v+'k', sp:v=>v+'%', ch:v=>v+'%', cd:v=>v+'%', am:v=>v+'%', cr:v=>v+'%', th:v=>v+'%', gl:v=>v+'%' };
-    const scale = { rb:v=>+v, sp:v=>v/100, ch:v=>v/100, cd:v=>v/100, am:v=>v/100, cr:v=>v/100, th:v=>v/100, gl:v=>v/100 };
-
-    const KEY = 'rda_v14_ctrls3';   // fresh key: slider semantics changed with the dust rebuild
-    let suppress = true;
-    function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
-    Object.keys(sliders).forEach(k => {
-      sliders[k].addEventListener('input', () => {
-        cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
-        if (k === 'rb') rebuild();   // changing particle count rebuilds the cloud
-        persist();
-      });
-    });
-    try { const o = JSON.parse(localStorage.getItem(KEY)); if (o) Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } }); } catch(e){}
-    suppress = false;
-    $('refreshBtn').addEventListener('click', () => location.reload());
-
     // ---------- scene ----------
+    const $ = id => document.getElementById(id);
     const canvas = $('fx');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -98,24 +85,29 @@
     // world size at z=0
     function worldSize(){ const h = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov)/2) * camera.position.z; return { w: h * camera.aspect, h }; }
 
-    const COLORS = ['#d73624', '#ff6a34', '#e8484f', '#ff5a8a', '#f0457a', '#c0277e', '#96077e'];   // warm RDA reds/oranges/pinks/magentas — no blue
-    const PALETTE = COLORS.map(c => new THREE.Color(c));
-    const CREAM   = new THREE.Color('#f3e0c4');   // far-layer desaturation target (pale warm cream)
-
     // ---------------------------------------------------------------------------
     // FINE-DUST PARTICLE SOUNDWAVE  (stock-render structure, warm RDA palette)
-    //  · 6 stacked mountain-ridge layers: each layer is a continuous multi-sine
-    //    ridge line; beneath each crest the body fills with fine fibrous dust,
-    //    densest right at the crest (the crest reads as a bright line), thinning
-    //    downward with exponential falloff. Near layers hot+saturated, far
-    //    layers pale cream/maroon and dim.
-    //  · Hard waterline at the lower third; a vertically mirrored copy renders
-    //    below it at ~30% brightness, fading with depth — reflection in black water.
+    //  · N stacked mountain-ridge layers (Waves slider, default 8): each layer is
+    //    a continuous multi-sine ridge line; beneath each crest the body fills
+    //    with fine fibrous dust — VERY dense right at the crest (the crest reads
+    //    as a bright line), thinning to a VERY faint sparse haze toward the
+    //    baseline. Each layer's density/brightness breathes on its own slow,
+    //    phase-offset sine so the contrast undulates across the stack.
+    //  · Layers cycle through 3 pickable colours (layer k -> colour k mod 3);
+    //    far layers wash toward pale warm cream and dim, near layers stay hot,
+    //    crest edges run hottest (white-hot lift in the fragment shader).
+    //  · The whole field streams slowly left-to-right (Drift slider): x advances
+    //    with time and wraps seamlessly at the field edge inside the vertex
+    //    shader, so y recomputes from the envelope at the new x automatically.
+    //  · Hard waterline (Vertical position slider, live); a vertically mirrored
+    //    copy renders below it, fading with depth — reflection in black water.
     //  · Sparse vertical rain-streak filaments rise above the tallest peaks.
-    //  · The look depends on: TINY points (1–2.5px) + DIM alpha + MANY particles;
-    //    luminosity accumulates from density via additive blending — no big sprites.
+    //  · TWO draw passes over the SAME buffer: a crisp 1–2.2px core pass, plus a
+    //    big soft additive halo pass (~6–12px, very low alpha) so dense regions
+    //    emit real light around themselves. Halo strength rides the Glow slider
+    //    (sublinearly, so it never washes out); negligible halos are collapsed
+    //    in the vertex shader to keep fill-rate sane at 300k.
     // ---------------------------------------------------------------------------
-    const LAYERS = 6;
 
     const VERT = `
       precision highp float;
@@ -130,15 +122,20 @@
       uniform float uBaseline;
       uniform float uFieldH;
       uniform float uBright;
+      uniform float uLayersM1;
+      uniform float uDriftX;
+      uniform float uHaloK;
       uniform vec2  uMouse;
+      uniform vec3  uColA;
+      uniform vec3  uColB;
+      uniform vec3  uColC;
       attribute float aX;        // base x across the field (-0.5..0.5 of overscanned width)
       attribute float aDrop;     // body: exponential depth below crest (0=crest, 1=baseline). spikes: stack slot 0..1
-      attribute float aLayer;    // ridge layer index 0 (far) .. 5 (near)
+      attribute float aLayer;    // ridge layer index 0 (far) .. N-1 (near)
       attribute float aSeed;     // per-particle random (shared per spike streak)
       attribute float aSpike;    // 0 = body dust, 1 = vertical rain-streak filament
       attribute float aMirror;   // 1 = this particle renders only as the reflection
       attribute float aSize;     // base point size multiplier (~1..2.2 px)
-      attribute vec3  aColor;    // per-particle base colour (layer-graded)
       varying vec3  vColor;
       varying float vAlpha;
       varying float vCrest;
@@ -146,10 +143,12 @@
       float hash(float n){ return fract(sin(n*127.1)*43758.5453); }
 
       void main(){
-        float x = aX * uWorldW;
+        // slow left-to-right stream: x advances with time, wrapping seamlessly at
+        // the (overscanned, off-screen) field edge; y recomputes from the new x
+        float x = mod(aX * uWorldW + uDriftX + 0.5 * uWorldW, uWorldW) - 0.5 * uWorldW;
         float t = uTime;
         float k = aLayer;
-        float lt = k / ${(LAYERS - 1).toFixed(1)};      // 0 far .. 1 near
+        float lt = k / max(uLayersM1, 1.0);             // 0 far .. 1 near
 
         // ---- per-layer ridge parameters (stable hashes of the layer index) ----
         float h1 = hash(k + 1.3);
@@ -181,14 +180,18 @@
         float crestH = uFieldH * (0.10 + 0.15*h4 + (0.40 + 0.32*lt) * uAmp * w01 * swell);
         float crest  = uBaseline + crestH;
 
+        // ---- per-layer breathing: density/brightness slowly undulates, phase-offset per layer ----
+        float breathe = 0.64 + 0.36 * sin(t * (0.30 + h2 * 0.25) + h4 * 6.2831 + k * 1.9);
+
         float y, alpha, crestGlow;
         float layerB = mix(0.28, 1.0, lt*lt);              // far layers dim, near layers bright
 
         if (aSpike < 0.5){
-          // ---- body dust: dense at the crest edge, exponential thinning to the baseline ----
+          // ---- body dust: VERY dense at the crest edge, falling to a VERY faint sparse haze ----
           y = uBaseline + crestH * (1.0 - aDrop);
-          crestGlow = exp(-aDrop * 3.4);
-          alpha = (0.30 + 0.70 * crestGlow) * layerB * 0.52;
+          crestGlow = exp(-aDrop * 5.2);                   // tight, hot crest band
+          float haze = exp(-aDrop * 1.2);                  // broad, barely-there body fill
+          alpha = (0.045 * haze + 0.78 * crestGlow) * layerB * breathe;
 
           // fibrous strands: jitter correlated with x so the dust reads as filaments, not noise
           float jit = uChaos * (0.45 + aDrop * 0.9);
@@ -217,11 +220,27 @@
 
         vAlpha = alpha * uBright;
         vCrest = crestGlow * (0.30 + 0.70 * lt);
-        vColor = aColor;
+
+        // ---- layer colour: the 3 picked colours cycle per layer (k mod 3); depth kept ----
+        float k3 = mod(k, 3.0);
+        vec3 base = k3 < 0.5 ? uColA : (k3 < 1.5 ? uColB : uColC);
+        base *= 0.92 + 0.16 * hash(aSeed * 3.31);          // per-grain brightness variation
+        // far layers wash toward pale warm cream, near layers stay saturated hot
+        vColor = mix(base, vec3(0.953, 0.878, 0.769), (1.0 - lt) * (0.40 + 0.20 * hash(aSeed * 7.73)));
 
         vec4 mv = modelViewMatrix * vec4(x, y, 0.0, 1.0);  // all layers at z=0: crisp shared waterline
         gl_Position = projectionMatrix * mv;
-        gl_PointSize = aSize * uPixelRatio;                // tiny, fixed — no attenuation blow-ups
+
+        float pts = aSize * uPixelRatio;                   // core: tiny, fixed — no attenuation blow-ups
+        #ifdef HALO
+          pts = (3.5 + aSize * 4.0) * uPixelRatio;         // halo: big soft sprite (~6–12px)
+          vAlpha *= 0.13 * uHaloK;                         // very low alpha — light, not paint
+          if (vAlpha < 0.012){                             // negligible halo: clip it (fill-rate)
+            gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+            pts = 0.0;
+          }
+        #endif
+        gl_PointSize = pts;
       }`;
 
     const FRAG = `
@@ -231,31 +250,56 @@
       varying float vAlpha;
       varying float vCrest;
       void main(){
-        // crisp dust grain: hard-ish core with a ~1px soft rim
         vec2 c = gl_PointCoord - vec2(0.5);
         float d = length(c) * 2.0;
         if (d > 1.0) discard;
-        float fall = 1.0 - smoothstep(0.45, 1.0, d);
-        float a = fall * vAlpha * uGlow;
-        // crest edges run hottest — lift toward white-hot orange right on the ridge line
-        vec3 col = vColor + vec3(0.55, 0.30, 0.10) * vCrest * 0.55;
-        gl_FragColor = vec4(col, a);
+        vec3 hot = vec3(0.55, 0.30, 0.10);
+        #ifdef HALO
+          // soft gaussian puff — pure light accumulation around dense regions
+          float a = exp(-d * d * 3.0) * vAlpha;
+          gl_FragColor = vec4(vColor + hot * vCrest * 0.40, a);
+        #else
+          // crisp dust grain: hard-ish core with a ~1px soft rim
+          float fall = 1.0 - smoothstep(0.45, 1.0, d);
+          float a = fall * vAlpha * uGlow;
+          // crest edges run hottest — lift toward white-hot orange right on the ridge line
+          gl_FragColor = vec4(vColor + hot * vCrest * 0.70, a);
+        #endif
       }`;
 
-    let points = null;
+    let points = null, halo = null;
+    let curWS = { w: 14, h: 7 };
     const uniforms = {
       uTime:{value:0}, uAmp:{value:1}, uH:{value:0}, uPixelRatio:{value:Math.min(devicePixelRatio,2)},
       uConduct:{value:1.2}, uChaos:{value:0.5}, uSpike:{value:1}, uWorldW:{value:14},
       uBaseline:{value:-1.2}, uFieldH:{value:3.6}, uBright:{value:1},
-      uMouse:{value:new THREE.Vector2(0,0)}, uGlow:{value:1}
+      uLayersM1:{value:7}, uDriftX:{value:0}, uHaloK:{value:1},
+      uMouse:{value:new THREE.Vector2(0,0)}, uGlow:{value:1},
+      uColA:{value:new THREE.Color('#ff6a34')},
+      uColB:{value:new THREE.Color('#f0457a')},
+      uColC:{value:new THREE.Color('#96077e')}
     };
 
+    const matCore = new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: FRAG, uniforms,
+      transparent: true, depthWrite: false, depthTest: false,
+      blending: THREE.AdditiveBlending
+    });
+    const matHalo = new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: FRAG, uniforms, defines: { HALO: 1 },
+      transparent: true, depthWrite: false, depthTest: false,
+      blending: THREE.AdditiveBlending
+    });
+
+    let ready = false;   // geometry builds only after controls are loaded + layout ran
     function rebuild(){
-      if (points){ scene.remove(points); points.geometry.dispose(); points.material.dispose(); points = null; }
+      if (!ready) return;
       const ws = worldSize();
-      uniforms.uWorldW.value   = ws.w * 1.15;            // bleed past the screen edges
-      uniforms.uBaseline.value = -ws.h * 0.17;           // waterline at the lower third
-      uniforms.uFieldH.value   =  ws.h * 0.50;           // wave field height above the line
+      curWS = ws;
+      uniforms.uWorldW.value  = ws.w * 1.15;             // bleed past the screen edges
+      uniforms.uFieldH.value  = ws.h * 0.50;             // wave field height above the line
+      const L = Math.max(3, Math.round(cfg.wv));         // ridge layer count (Waves slider)
+      uniforms.uLayersM1.value = Math.max(L - 1, 1);
 
       const N = Math.round(cfg.rb * 1000);
       const STACK = 6;                                    // points per spike streak (vertical run)
@@ -264,39 +308,26 @@
 
       const aX = new Float32Array(N), aDrop = new Float32Array(N), aLayer = new Float32Array(N);
       const aSeed = new Float32Array(N), aSpike = new Float32Array(N), aMirror = new Float32Array(N);
-      const aSize = new Float32Array(N), aColor = new Float32Array(N * 3);
-
-      const setColor = (i, li) => {
-        // hue drifts across x (reds/oranges -> pinks/magentas) like the reference's zones
-        const cpos = (aX[i] + 0.5) * (PALETTE.length - 1) + (Math.random() - 0.5) * 0.9;
-        const ci = Math.max(0, Math.min(PALETTE.length - 2, Math.floor(cpos)));
-        const f = Math.max(0, Math.min(1, cpos - ci));
-        const c = PALETTE[ci].clone().lerp(PALETTE[ci + 1], f);
-        // two-tone depth: far layers wash toward pale warm cream, near layers stay saturated hot
-        const lt = li / (LAYERS - 1);
-        c.lerp(CREAM, (1 - lt) * (0.40 + Math.random() * 0.20));
-        aColor[i*3] = c.r; aColor[i*3+1] = c.g; aColor[i*3+2] = c.b;
-      };
+      const aSize = new Float32Array(N);
 
       // ---- body dust ----
       for (let i = 0; i < nBody; i++){
         aX[i] = Math.random() - 0.5;
-        const li = Math.min(LAYERS - 1, Math.floor(Math.pow(Math.random(), 0.75) * LAYERS)); // bias near
+        const li = Math.min(L - 1, Math.floor(Math.pow(Math.random(), 0.75) * L)); // bias near
         aLayer[i] = li;
         aSeed[i]  = Math.random();
         aSpike[i] = 0;
         aMirror[i]= Math.random() < 0.40 ? 1 : 0;
         // exponential depth below the crest: dense right at the edge, thinning to the baseline
-        aDrop[i]  = Math.min(1, -Math.log(1 - Math.random() * 0.985) / 4.2);
-        aSize[i]  = 0.9 + Math.random() * 0.7 + (li / (LAYERS - 1)) * 0.6;   // ~0.9..2.2 px
-        setColor(i, li);
+        aDrop[i]  = Math.min(1, -Math.log(1 - Math.random() * 0.985) / 4.8);
+        aSize[i]  = 0.9 + Math.random() * 0.7 + (li / (L - 1)) * 0.6;   // ~0.9..2.2 px
       }
 
       // ---- spike streaks: groups of STACK points sharing x + seed -> vertical filaments ----
       for (let i = nBody; i < N; i += STACK){
         const sx = Math.random() - 0.5;
         const sseed = Math.random();
-        const li = LAYERS - 1 - (Math.random() < 0.5 ? 0 : 1);   // front two layers only
+        const li = L - 1 - (Math.random() < 0.5 ? 0 : 1);   // front two layers only
         const mir = Math.random() < 0.40 ? 1 : 0;
         for (let j = 0; j < STACK; j++){
           const idx = i + j;
@@ -304,7 +335,6 @@
           aSpike[idx] = 1; aMirror[idx] = mir;
           aDrop[idx] = j / (STACK - 1);                          // stacked run along the streak
           aSize[idx] = 1.0 + Math.random() * 0.3;                // thin
-          setColor(idx, li);
         }
       }
 
@@ -317,17 +347,60 @@
       geo.setAttribute('aSpike',  new THREE.BufferAttribute(aSpike, 1));
       geo.setAttribute('aMirror', new THREE.BufferAttribute(aMirror, 1));
       geo.setAttribute('aSize',   new THREE.BufferAttribute(aSize, 1));
-      geo.setAttribute('aColor',  new THREE.BufferAttribute(aColor, 3));
       geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0,0,0), 100);   // never frustum-cull
 
-      const mat = new THREE.ShaderMaterial({
-        vertexShader: VERT, fragmentShader: FRAG, uniforms,
-        transparent: true, depthWrite: false, depthTest: false,
-        blending: THREE.AdditiveBlending
-      });
-      points = new THREE.Points(geo, mat);
-      scene.add(points);
+      if (!points){
+        halo   = new THREE.Points(geo, matHalo);  halo.renderOrder = 0;   // soft light underneath
+        points = new THREE.Points(geo, matCore);  points.renderOrder = 1; // crisp grain on top
+        scene.add(halo); scene.add(points);
+      } else {
+        points.geometry.dispose();               // shared by both passes — dispose once
+        points.geometry = geo;
+        halo.geometry = geo;
+      }
     }
+
+    // ---------- controls ----------
+    // rb = particle count (k), wv = ridge layer count, sp = flow speed, dr = left-to-right drift,
+    // ch = fibrous chaos/shimmer, cd = conduct strength, am = amplitude, cr = crescendo (scroll),
+    // th = spike streaks, gl = glow (core + halo), ps = vertical position of the waterline
+    const sliders = { rb:$('rbSlider'), wv:$('wvSlider'), sp:$('spSlider'), dr:$('drSlider'), ch:$('chSlider'), cd:$('cdSlider'), am:$('amSlider'), cr:$('crSlider'), th:$('thSlider'), gl:$('glSlider'), ps:$('psSlider') };
+    const vals    = { rb:$('rbVal'),    wv:$('wvVal'),    sp:$('spVal'),    dr:$('drVal'),    ch:$('chVal'),    cd:$('cdVal'),    am:$('amVal'),    cr:$('crVal'),    th:$('thVal'),    gl:$('glVal'),    ps:$('psVal') };
+    const cfg = { rb:100, wv:8, sp:1, dr:0.4, ch:0.5, cd:1.2, am:1.2, cr:1.2, th:1, gl:1.3, ps:-0.17 };
+    const fmt = { rb:v=>v+'k', wv:v=>v, sp:v=>v+'%', dr:v=>v+'%', ch:v=>v+'%', cd:v=>v+'%', am:v=>v+'%', cr:v=>v+'%', th:v=>v+'%', gl:v=>v+'%', ps:v=>v };
+    const scale = { rb:v=>+v, wv:v=>+v, sp:v=>v/100, dr:v=>v/100, ch:v=>v/100, cd:v=>v/100, am:v=>v/100, cr:v=>v/100, th:v=>v/100, gl:v=>v/100, ps:v=>v/100 };
+
+    const pickers = { cA:$('cASlider'), cB:$('cBSlider'), cC:$('cCSlider') };
+    const pickerU = { cA:uniforms.uColA, cB:uniforms.uColB, cC:uniforms.uColC };
+
+    const KEY = 'rda_v14_ctrls4';   // fresh key: slider set changed (waves/drift/position/colours)
+    let suppress = true;
+    function persist(){
+      if (suppress) return;
+      const o = {};
+      Object.keys(sliders).forEach(k => o[k] = sliders[k].value);
+      Object.keys(pickers).forEach(k => o[k] = pickers[k].value);
+      try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){}
+    }
+    Object.keys(sliders).forEach(k => {
+      sliders[k].addEventListener('input', () => {
+        cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
+        if (k === 'rb' || k === 'wv') rebuild();   // count / layer changes rebuild the cloud
+        persist();
+      });
+    });
+    Object.keys(pickers).forEach(k => {
+      pickers[k].addEventListener('input', () => { pickerU[k].value.set(pickers[k].value); persist(); });   // live, no rebuild
+    });
+    try {
+      const o = JSON.parse(localStorage.getItem(KEY));
+      if (o) Object.keys(o).forEach(k => {
+        const el = sliders[k] || pickers[k];
+        if (el){ el.value = o[k]; el.dispatchEvent(new Event('input')); }
+      });
+    } catch(e){}
+    suppress = false;
+    $('refreshBtn').addEventListener('click', () => location.reload());
 
     function layout(){
       renderer.setSize(innerWidth, innerHeight, false);
@@ -337,6 +410,7 @@
       rebuild();
     }
     window.addEventListener('resize', layout);
+    ready = true;
     layout();
 
     // ---------- conducting state ----------
@@ -367,6 +441,7 @@
 
     const clock = new THREE.Clock();
     let simT = 0;                  // accumulated wave time (so Flow-speed changes don't jump)
+    let driftX = 0;                // accumulated drift offset (so Drift changes don't jump)
     function tick(){
       const dt = Math.min(clock.getDelta(), 0.05);
       // conducting builds harmony; stillness lets it dissolve
@@ -378,16 +453,20 @@
 
       const spd = cfg.sp * (1 + scrollP * cfg.cr * 0.6);
       simT += dt * spd;
+      driftX = (driftX + dt * spd * cfg.dr * 0.45) % Math.max(uniforms.uWorldW.value, 1);
 
       uniforms.uTime.value    = simT;
+      uniforms.uDriftX.value  = driftX;
       uniforms.uAmp.value     = cfg.am * (1 + scrollP * cfg.cr * 1.2);   // crescendo raises the ridges
       uniforms.uH.value       = harmony;
       uniforms.uConduct.value = cfg.cd;
       uniforms.uChaos.value   = cfg.ch * (1 + scrollP * cfg.cr * 0.4);
       uniforms.uSpike.value   = cfg.th * (1 + scrollP * cfg.cr * 0.5);
       uniforms.uBright.value  = 1 + scrollP * cfg.cr * 0.7;              // crescendo brightens the dust
+      uniforms.uBaseline.value= curWS.h * cfg.ps;                        // vertical position, live
       uniforms.uMouse.value.set(mxW, myW);
       uniforms.uGlow.value    = cfg.gl;
+      uniforms.uHaloK.value   = Math.pow(Math.max(cfg.gl, 0), 0.6);      // halo rides Glow, sublinearly
 
       renderer.render(scene, camera);
       requestAnimationFrame(tick);
