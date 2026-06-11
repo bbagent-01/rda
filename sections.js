@@ -4,9 +4,9 @@
 
 export const NAV_ITEMS = [
   ['1','Feathered'], ['2','Liquid Glass'], ['3','Clear Glass'], ['4','Flat Glass'],
-  ['5','Trigger'], ['6','Scrub'], ['7','Ribbons'], ['8','Podium'], ['9','Shards'], ['10','Tilt'], ['11','Iris'], ['12','Iris II'], ['13','Amphitheater']
+  ['5','Trigger'], ['6','Scrub'], ['7','Ribbons'], ['8','Podium'], ['9','Shards'], ['10','Tilt'], ['11','Iris'], ['12','Iris II'], ['13','Amphitheater'], ['14','Ribbons II']
 ];
-const PRIMARY = ['5', '9', '10', '11', '12', '13'];   // everything else lives in the Archive dropdown
+const PRIMARY = ['5', '10', '13', '14'];   // everything else (incl. archived 9/11/12) lives in the Archive dropdown
 
 export function navHTML(active){
   const links = items => items.map(([n, l]) =>

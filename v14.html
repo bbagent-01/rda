@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>RDA Digital — Hero Sandbox (v14 · Ribbons II)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { overflow-x: hidden; }
+    #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+    #vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(120% 95% at 50% 42%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.65) 100%); }
+    .hero-copy { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 0 7vw; pointer-events: none; }
+    .hero-copy .sentence { text-align: center; max-width: 14ch; }
+    .hero-copy .sub { margin-top: 26px; font-size: clamp(15px, 1.6vw, 21px); font-weight: 500;
+      color: rgba(255,255,255,0.68); max-width: 52ch; line-height: 1.5; text-shadow: 0 0 30px #000; }
+  </style>
+  <script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" }}
+  </script>
+</head>
+<body class="v14">
+
+  <canvas id="fx"></canvas>
+  <div id="vignette"></div>
+
+  <div class="hero-copy" id="copy">
+    <p class="sentence" data-sentence="Victory Never Sounded So Good."></p>
+    <p class="sub reveal">AI can play every instrument. Great leaders ensure the entire orchestra performs in harmony.</p>
+  </div>
+
+  <div class="scroll-hint" id="hint">Scroll ↓</div>
+
+  <div id="controls">
+    <div class="title-row"><span class="title">Conductor · Ribbons II</span><button id="refreshBtn">↻ Refresh</button></div>
+    <div class="ctrl"><div class="row"><span>Ribbons</span><span class="val" id="rbVal">11</span></div><input id="rbSlider" type="range" min="9" max="14" step="1" value="11" /></div>
+    <div class="ctrl"><div class="row"><span>Flow speed</span><span class="val" id="spVal">100%</span></div><input id="spSlider" type="range" min="20" max="300" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Chaos (idle)</span><span class="val" id="chVal">55%</span></div><input id="chSlider" type="range" min="0" max="100" step="1" value="55" /></div>
+    <div class="ctrl"><div class="row"><span>Conduct strength</span><span class="val" id="cdVal">120%</span></div><input id="cdSlider" type="range" min="0" max="300" step="5" value="120" /></div>
+    <div class="ctrl"><div class="row"><span>Amplitude</span><span class="val" id="amVal">100%</span></div><input id="amSlider" type="range" min="30" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Crescendo (scroll)</span><span class="val" id="crVal">120%</span></div><input id="crSlider" type="range" min="0" max="300" step="5" value="120" /></div>
+    <div class="ctrl"><div class="row"><span>Thickness</span><span class="val" id="thVal">100%</span></div><input id="thSlider" type="range" min="30" max="250" step="5" value="100" /></div>
+    <div class="ctrl"><div class="row"><span>Gloss</span><span class="val" id="glVal">100%</span></div><input id="glSlider" type="range" min="0" max="200" step="5" value="100" /></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { mountSections, mountNav } from './sections.js';
+    mountSections(); mountNav('14');
+
+    // ---------- copy reveal (same word-stagger language as the other pages) ----------
+    document.querySelectorAll('#copy [data-sentence]').forEach(p => {
+      p.dataset.sentence.split(/\s+/).forEach(w => {
+        const s = document.createElement('span');
+        s.className = 'word reveal'; s.textContent = w;
+        p.appendChild(s); p.appendChild(document.createTextNode(' '));
+      });
+    });
+    const revealItems = [...document.querySelectorAll('#copy .reveal')];
+    revealItems.forEach((el, i) => el.style.transitionDelay = (i * 70) + 'ms');
+    setTimeout(() => revealItems.forEach(el => el.classList.add('in')), 900);
+
+    // ---------- controls ----------
+    const $ = id => document.getElementById(id);
+    const sliders = { rb:$('rbSlider'), sp:$('spSlider'), ch:$('chSlider'), cd:$('cdSlider'), am:$('amSlider'), cr:$('crSlider'), th:$('thSlider'), gl:$('glSlider') };
+    const vals    = { rb:$('rbVal'),    sp:$('spVal'),    ch:$('chVal'),    cd:$('cdVal'),    am:$('amVal'),    cr:$('crVal'),    th:$('thVal'),    gl:$('glVal') };
+    const cfg = { rb:11, sp:1, ch:0.55, cd:1.2, am:1, cr:1.2, th:1, gl:1 };
+    const fmt = { rb:v=>v, sp:v=>v+'%', ch:v=>v+'%', cd:v=>v+'%', am:v=>v+'%', cr:v=>v+'%', th:v=>v+'%', gl:v=>v+'%' };
+    const scale = { rb:v=>+v, sp:v=>v/100, ch:v=>v/100, cd:v=>v/100, am:v=>v/100, cr:v=>v/100, th:v=>v/100, gl:v=>v/100 };
+
+    const KEY = 'rda_v14_ctrls';
+    let suppress = true;
+    function persist(){ if (suppress) return; const o={}; Object.keys(sliders).forEach(k=>o[k]=sliders[k].value); try{ localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){} }
+    Object.keys(sliders).forEach(k => {
+      sliders[k].addEventListener('input', () => {
+        cfg[k] = scale[k](sliders[k].value); vals[k].textContent = fmt[k](sliders[k].value);
+        if (k === 'rb' || k === 'th') rebuild();
+        persist();
+      });
+    });
+    try { const o = JSON.parse(localStorage.getItem(KEY)); if (o) Object.keys(o).forEach(k => { if (sliders[k]) { sliders[k].value = o[k]; sliders[k].dispatchEvent(new Event('input')); } }); } catch(e){}
+    suppress = false;
+    $('refreshBtn').addEventListener('click', () => location.reload());
+
+    // ---------- scene ----------
+    const canvas = $('fx');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 1);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    camera.position.set(0, 0, 10);
+
+    // world size at z=0
+    function worldSize(){ const h = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov)/2) * camera.position.z; return { w: h * camera.aspect, h }; }
+
+    const COLORS = ['#d73624', '#e8484f', '#ff5a8a', '#c0277e', '#96077e', '#6d28d9', '#8b5cf6'];
+
+    // Thick glass ribbons: same soundwave displacement as v7, but the strip is TALL
+    // and the fragment shader fakes a rounded, voluminous glassy cross-section with a
+    // travelling specular streak — so layered ribbons read as stacked shiny glass.
+    const VERT = `
+      uniform float uTime,uAmp,uH,uFreqP,uSpeedP,uPhase,uFreqS,uSpeedS,uBaseY,uBend;
+      uniform vec2 uMouse;
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        vec3 pos = position;
+        float x = pos.x;
+        float personal = sin(x*uFreqP + uTime*uSpeedP + uPhase) + 0.5*sin(x*uFreqP*2.3 + uTime*uSpeedP*1.37 + uPhase*2.1);
+        float shared   = sin(x*uFreqS + uTime*uSpeedS)          + 0.5*sin(x*uFreqS*1.71 + uTime*uSpeedS*1.21);
+        float w = mix(personal, shared, uH);
+        float y = uAmp * w * 0.6;
+        float infl = exp(-pow(x - uMouse.x, 2.0) / 2.6);
+        y += infl * (uMouse.y - uBaseY) * uBend;
+        pos.y += y;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }`;
+    const FRAG = `
+      uniform vec3 uColor; uniform vec3 uColor2; uniform float uAlpha;
+      uniform float uTime; uniform float uGloss; uniform float uSeed;
+      varying vec2 vUv;
+      void main(){
+        // ---- rounded glassy cross-section across the ribbon's height ----
+        // v = -1..1 from bottom rim to top rim; round() gives a cylindrical body.
+        float v = vUv.y * 2.0 - 1.0;
+        float round = sqrt(max(1.0 - v*v, 0.0));     // bright fat middle, falls to the rims
+
+        // ---- colour shifts along the length of the ribbon ----
+        vec3 body = mix(uColor, uColor2, smoothstep(0.05, 0.95, vUv.x));
+
+        // darker voluminous core gradient + lit rounded body
+        vec3 col = body * (0.42 + 0.72 * round);
+
+        // soft fresnel-style bright edges (top & bottom rim glow)
+        float rim = pow(1.0 - round, 2.4);
+        col += body * rim * 0.9;
+        col += vec3(0.85, 0.88, 1.0) * rim * 0.18;   // cool rim light, sells glass
+
+        // ---- travelling specular GLOSS streak running along the ribbon ----
+        // a tight highlight band that slides with time -> "shiny glass".
+        float streak = sin(vUv.x * 7.0 + uTime * 1.7 + uSeed);
+        float spec = pow(max(streak, 0.0), 22.0);            // crisp moving line of light
+        // keep the shine on the rounded upper body, not the dark rims
+        float specBand = smoothstep(0.18, 0.62, round) * (0.55 + 0.45 * v);
+        spec *= max(specBand, 0.0);
+        // a second, broader sheen for a glassy wet look
+        float sheen = pow(max(sin(vUv.x * 3.1 - uTime * 0.9 + uSeed * 0.7), 0.0), 6.0) * round * 0.35;
+
+        vec3 glossCol = vec3(1.0, 0.97, 0.99);
+        col += glossCol * (spec * 1.6 + sheen) * uGloss;     // additive ONLY on the specular streak
+
+        // ---- alpha: thick rounded body stays rich; rims fade so layers overlap as glass ----
+        float a = (0.30 + 0.70 * round) * uAlpha;
+        a = clamp(a + spec * 0.5 * uGloss, 0.0, 1.0);        // shine lifts opacity a touch
+
+        // premultiply-ish: bright highlights punch through without washing to white
+        gl_FragColor = vec4(col, a);
+      }`;
+
+    let ribbons = [];
+    function rebuild(){
+      ribbons.forEach(r => { scene.remove(r.mesh); r.mesh.geometry.dispose(); r.mesh.material.dispose(); });
+      ribbons = [];
+      const ws = worldSize();
+      const n = cfg.rb;
+      const built = [];
+      for (let i = 0; i < n; i++){
+        const t = n === 1 ? 0.5 : i / (n - 1);
+        const baseY = (t - 0.5) * 3.4;                              // vertical band the ribbons live in
+        // LARGE base height (0.9–1.9 world units), varied per-ribbon, scaled by Thickness control
+        const th = (0.95 + Math.abs(Math.sin(i * 1.9 + 0.6)) * 0.95) * cfg.th;
+        // depth: spread across z so thick ribbons cross over and layer like stacked glass
+        const z = ((i % 2 === 0 ? 1 : -1) * (0.35 + ((i * 7) % 5) / 5 * 0.85)) ;
+        const geo = new THREE.PlaneGeometry(ws.w * 1.45, th, 260, 1);
+        const mat = new THREE.ShaderMaterial({
+          vertexShader: VERT, fragmentShader: FRAG,
+          transparent: true, depthWrite: false, depthTest: false,
+          blending: THREE.NormalBlending,
+          uniforms: {
+            uTime:{value:0}, uAmp:{value:1}, uH:{value:0},
+            uFreqP:{value:0.85 + (i % 5) * 0.2}, uSpeedP:{value:0.5 + ((i * 37) % 10) / 10 * 0.7},
+            uPhase:{value:i * 1.31}, uFreqS:{value:1.0}, uSpeedS:{value:0.6},
+            uBaseY:{value:baseY}, uBend:{value:0}, uMouse:{value:new THREE.Vector2(0, 0)},
+            uColor:{value:new THREE.Color(COLORS[i % COLORS.length])},
+            uColor2:{value:new THREE.Color(COLORS[(i + 3) % COLORS.length])},
+            uAlpha:{value:0.78}, uGloss:{value:1}, uSeed:{value:i * 2.137}
+          }
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(0, baseY, z);
+        mesh.renderOrder = 0;                                       // set after z-sort below
+        built.push({ mesh, baseY, z });
+      }
+      // sort back -> front so transparent overlaps layer correctly (no depth buffer in use)
+      built.sort((a, b) => a.z - b.z);
+      built.forEach((r, idx) => { r.mesh.renderOrder = idx; scene.add(r.mesh); ribbons.push(r); });
+    }
+
+    function layout(){
+      renderer.setSize(innerWidth, innerHeight, false);
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      rebuild();
+    }
+    window.addEventListener('resize', layout);
+    layout();
+
+    // ---------- conducting state ----------
+    let mxW = 0, myW = 0;          // eased mouse in world units
+    let tmxW = 0, tmyW = 0;        // target
+    let harmony = 0;               // builds while you conduct, decays when idle
+    let lastMX = 0, lastMY = 0, mouseSpeed = 0;
+    window.addEventListener('mousemove', e => {
+      const ws = worldSize();
+      tmxW = (e.clientX / innerWidth - 0.5) * ws.w;
+      tmyW = -(e.clientY / innerHeight - 0.5) * ws.h;
+      mouseSpeed = Math.min(Math.hypot(e.clientX - lastMX, e.clientY - lastMY), 80);
+      lastMX = e.clientX; lastMY = e.clientY;
+    }, { passive: true });
+
+    // scroll: crescendo + copy fade
+    const copy = $('copy'), hint = $('hint');
+    let scrollP = 0;
+    function onScroll(){
+      const sc = document.documentElement.scrollHeight - innerHeight;
+      scrollP = sc > 0 ? Math.min(Math.max(scrollY / sc, 0), 1) : 0;
+      hint.style.opacity = scrollY > 40 ? '0' : '1';
+      const wp = Math.min(Math.max(scrollY / (innerHeight * 0.6), 0), 1);
+      copy.style.transform = `translateY(${(-wp * 70).toFixed(1)}px)`;
+      copy.style.opacity = (1 - wp).toFixed(3);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const clock = new THREE.Clock();
+    function tick(){
+      const t = clock.getElapsedTime();
+      // conducting builds harmony; stillness lets it dissolve back to chaos
+      if (mouseSpeed > 2) harmony = Math.min(harmony + 0.012 * cfg.cd, 1);
+      else harmony = Math.max(harmony - 0.004, 0);
+      mouseSpeed *= 0.9;
+      mxW += (tmxW - mxW) * 0.04;  // slow lazy baton
+      myW += (tmyW - myW) * 0.04;
+
+      const idleH = (1 - cfg.ch) * 0.5;                     // chaos slider sets the idle floor
+      const h = Math.min(idleH + harmony * (1 - idleH), 1);
+      const amp = cfg.am * (1 + scrollP * cfg.cr * 1.6);
+      const spd = cfg.sp * (1 + scrollP * cfg.cr * 0.7);
+
+      for (const r of ribbons){
+        const u = r.mesh.material.uniforms;
+        u.uTime.value = t * spd;
+        u.uAmp.value = amp;
+        u.uH.value = h;
+        u.uBend.value = cfg.cd * 0.55;
+        u.uMouse.value.set(mxW, myW);
+        u.uGloss.value = cfg.gl;
+      }
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

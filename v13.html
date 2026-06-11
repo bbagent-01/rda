@@ -319,10 +319,10 @@
       const lcx = (nx * 0.5) / cfg.sz;
       const lcy = (3.55 - cfg.sp) / cfg.sz;
       const lcz = -2.0 / cfg.sz;
-      // shards file UPRIGHT into a line along the ring's bottom edge (sliding sideways), then the
-      // line CURLS up and wraps into the circle — each shard only ever tilts with the curve tangent,
-      // so it never spins in place (motion always stays perpendicular to the shard's length)
-      const ax = lcx, ay = lcy - Rl;
+      // shards rise UP and slide RIGHT into a line along the ring's TOP edge, then the line CURLS
+      // DOWN and around to close the circle — each shard only ever tilts with the curve tangent, so
+      // it never spins in place (motion always stays perpendicular to the shard's length)
+      const ax = lcx, ay = lcy + Rl;
       const cu = ss(clamp01((ti - 0.42) / 0.58));          // straight line -> closed circle
       const curv = 0.02 + 0.98 * cu;
       const formed = ss(clamp01((ti - 0.92) / 0.08));      // ring fully closed
@@ -373,10 +373,10 @@
         const Re = (Rl * p.iR) / curv;                     // huge radius (≈straight line) -> Rl (closed circle)
         const ph = curv * (p.iA + sOff);                   // arc sweep: tiny early, full angle once closed
         const lx = ax + Math.sin(ph) * Re;
-        const ly = ay + (1 - Math.cos(ph)) * Re;
+        const ly = ay - (1 - Math.cos(ph)) * Re;           // curl DOWN from the top seam
         const lz = lcz + (p.iZ / cfg.sz) * cu;
         _p.set(fx0 + (lx - fx0) * li, fy0 + (ly - fy0) * li, fz0 + (lz - fz0) * li);
-        _e.set(0, 0, ph * li);                             // upright in the field; tilts only with the curve
+        _e.set(0, 0, -ph * li);                            // upright in the field; tilts only with the curve (rolls, no spin)
         _q.setFromEuler(_e);
 
         const syIris = (Rl * 0.42 * p.iL) / H;
