@@ -123,7 +123,7 @@
         vAlong = position.y;      // base quad y in [-reflFrac, 1]
         vIndex = aIndex; vSeed = aSeed; vHeight = aHeight;
 
-        float barW = uColW * 0.34;                 // thin bar inside its column slot
+        float barW = uColW * 0.46;                 // bar inside its column slot
         float xC = (aIndex - 0.5) * 2.0 * uHalfW;  // centre x of this column
         float worldH = aHeight * uBarMaxH;
 
@@ -166,9 +166,9 @@
         // distance from the bar's vertical centre line: 0 at core, 1 at edge
         float d = clamp(abs(vSide) * 2.0, 0.0, 1.0);
 
-        // crisp bright CORE line + soft outward bloom (glass glow)
-        float core  = pow(1.0 - d, 3.0);     // tight hot core
-        float bloom = pow(1.0 - d, 1.1);     // wide soft glow
+        // crisp bright CORE line + wide soft outward bloom (glass glow)
+        float core  = pow(1.0 - d, 2.2);     // hot core
+        float bloom = pow(1.0 - d, 0.75);    // wide soft glow
 
         bool isRefl = vAlong < 0.0;
         float along = abs(vAlong);            // 0 at base -> 1 at tip (or reflection depth)
@@ -179,12 +179,11 @@
 
         // colour: hue shifts across the spectrum width, hotter (whiter) at core + on tall bars
         vec3 base = warmRamp(vIndex * 0.85 + vHeight * 0.18);
-        vec3 col = base;
-        col = mix(col, vec3(1.0, 0.97, 0.92), core * (0.55 + 0.45 * smoothstep(0.4, 1.2, vHeight)));
-        col += base * bloom * 0.9;
+        vec3 col = base * (1.2 + 0.5 * bloom);                                  // keep the colour saturated
+        col = mix(col, vec3(1.0, 0.95, 0.90), core * 0.45 * smoothstep(0.55, 1.25, vHeight));   // white-hot only on tall peaks
         col *= tipBoost * shimmer;
 
-        float intensity = (core * 1.35 + bloom * 0.55) * baseFall * uGlow;
+        float intensity = (core * 2.1 + bloom * 1.05) * baseFall * uGlow;
 
         if (isRefl){
           // mirrored reflection: dim, fades out fast downward
