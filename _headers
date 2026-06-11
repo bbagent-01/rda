@@ -1,0 +1,3 @@
+# Fast-iteration sandbox: always revalidate so edits show on a normal refresh (no stale cached JS/HTML)
+/*
+  Cache-Control: public, max-age=0, must-revalidate

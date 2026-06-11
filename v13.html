@@ -376,7 +376,7 @@
         const ly = ay - (1 - Math.cos(ph)) * Re;           // curl DOWN from the top seam
         const lz = lcz + (p.iZ / cfg.sz) * cu;
         _p.set(fx0 + (lx - fx0) * li, fy0 + (ly - fy0) * li, fz0 + (lz - fz0) * li);
-        _e.set(0, 0, -ph * li);                            // upright in the field; tilts only with the curve (rolls, no spin)
+        _e.set(0, 0, (Math.PI * cu - ph) * li);            // upright while sliding; turns to point INWARD as it curls down, so cursor-growth extends shards toward the centre
         _q.setFromEuler(_e);
 
         const syIris = (Rl * 0.42 * p.iL) / H;

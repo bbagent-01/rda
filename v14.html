@@ -96,68 +96,63 @@
     // world size at z=0
     function worldSize(){ const h = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov)/2) * camera.position.z; return { w: h * camera.aspect, h }; }
 
-    const COLORS = ['#d73624', '#e8484f', '#ff5a8a', '#c0277e', '#96077e', '#6d28d9', '#8b5cf6'];
+    const COLORS = ['#d73624', '#ff6a34', '#e8484f', '#ff5a8a', '#f0457a', '#c0277e', '#96077e'];   // warm RDA reds/oranges/pinks/magentas — no blue
 
-    // Thick glass ribbons: same soundwave displacement as v7, but the strip is TALL
-    // and the fragment shader fakes a rounded, voluminous glassy cross-section with a
-    // travelling specular streak — so layered ribbons read as stacked shiny glass.
+    // Thick glass ribbons: the soundwave displacement drives the centreline, while the
+    // ribbon's THICKNESS undulates thin<->thick along its length (a slow travelling twist),
+    // so each ribbon reads like a glass band turning edge-on then face-on. No moving glints.
     const VERT = `
-      uniform float uTime,uAmp,uH,uFreqP,uSpeedP,uPhase,uFreqS,uSpeedS,uBaseY,uBend;
+      uniform float uTime,uAmp,uH,uFreqP,uSpeedP,uPhase,uFreqS,uSpeedS,uBaseY,uBend,uTwFreq,uTwSpd,uSeed;
       uniform vec2 uMouse;
-      varying vec2 vUv;
+      varying vec2 vUv; varying float vThick;
       void main(){
         vUv = uv;
         vec3 pos = position;
         float x = pos.x;
+        float v0 = pos.y;                       // cross-section offset around the ribbon centreline
         float personal = sin(x*uFreqP + uTime*uSpeedP + uPhase) + 0.5*sin(x*uFreqP*2.3 + uTime*uSpeedP*1.37 + uPhase*2.1);
         float shared   = sin(x*uFreqS + uTime*uSpeedS)          + 0.5*sin(x*uFreqS*1.71 + uTime*uSpeedS*1.21);
         float w = mix(personal, shared, uH);
-        float y = uAmp * w * 0.6;
+        float center = uAmp * w * 0.6;
         float infl = exp(-pow(x - uMouse.x, 2.0) / 2.6);
-        y += infl * (uMouse.y - uBaseY) * uBend;
-        pos.y += y;
+        center += infl * (uMouse.y - uBaseY) * uBend;
+        // TWIST: thickness pinches thin and bulges thick along the length, travelling slowly
+        float a1 = 0.5 + 0.5*sin(x*uTwFreq + uTime*uTwSpd + uSeed*1.7);
+        float a2 = 0.5 + 0.5*sin(x*uTwFreq*0.53 - uTime*uTwSpd*0.6 + uSeed);
+        float tw = 0.06 + 0.94 * pow(a1*0.62 + a2*0.38, 1.7);
+        vThick = tw;
+        pos.y = center + v0 * tw;               // very thin sections <-> very thick sections
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }`;
     const FRAG = `
-      uniform vec3 uColor; uniform vec3 uColor2; uniform float uAlpha;
-      uniform float uTime; uniform float uGloss; uniform float uSeed;
-      varying vec2 vUv;
+      uniform vec3 uColor; uniform vec3 uColor2; uniform float uAlpha; uniform float uGloss;
+      varying vec2 vUv; varying float vThick;
       void main(){
-        // ---- rounded glassy cross-section across the ribbon's height ----
-        // v = -1..1 from bottom rim to top rim; round() gives a cylindrical body.
+        // rounded glassy cross-section across the ribbon's height: fat lit middle, thin rims
         float v = vUv.y * 2.0 - 1.0;
-        float round = sqrt(max(1.0 - v*v, 0.0));     // bright fat middle, falls to the rims
+        float round = sqrt(max(1.0 - v*v, 0.0));
 
-        // ---- colour shifts along the length of the ribbon ----
+        // colour shifts along the length of the ribbon
         vec3 body = mix(uColor, uColor2, smoothstep(0.05, 0.95, vUv.x));
+        vec3 col = body * (0.40 + 0.78 * round);             // voluminous lit body
 
-        // darker voluminous core gradient + lit rounded body
-        vec3 col = body * (0.42 + 0.72 * round);
+        // bright glass rim — warm, not blue
+        float rim = pow(1.0 - round, 2.2);
+        col += body * rim * 0.85;
+        col += vec3(1.0, 0.93, 0.88) * rim * 0.22 * uGloss;  // warm edge light (Gloss controls it)
 
-        // soft fresnel-style bright edges (top & bottom rim glow)
-        float rim = pow(1.0 - round, 2.4);
-        col += body * rim * 0.9;
-        col += vec3(0.85, 0.88, 1.0) * rim * 0.18;   // cool rim light, sells glass
+        // soft STATIC core sheen on the upper body — glassy, no movement
+        float core = smoothstep(0.55, 1.0, round) * (0.5 + 0.5 * v);
+        col += vec3(1.0, 0.95, 0.92) * core * 0.30 * uGloss;
 
-        // ---- travelling specular GLOSS streak running along the ribbon ----
-        // a tight highlight band that slides with time -> "shiny glass".
-        float streak = sin(vUv.x * 7.0 + uTime * 1.7 + uSeed);
-        float spec = pow(max(streak, 0.0), 22.0);            // crisp moving line of light
-        // keep the shine on the rounded upper body, not the dark rims
-        float specBand = smoothstep(0.18, 0.62, round) * (0.55 + 0.45 * v);
-        spec *= max(specBand, 0.0);
-        // a second, broader sheen for a glassy wet look
-        float sheen = pow(max(sin(vUv.x * 3.1 - uTime * 0.9 + uSeed * 0.7), 0.0), 6.0) * round * 0.35;
+        // thin twisted sections read brighter / edge-lit, like glass turned edge-on
+        float edge = 1.0 - vThick;
+        col += body * edge * 0.35;
 
-        vec3 glossCol = vec3(1.0, 0.97, 0.99);
-        col += glossCol * (spec * 1.6 + sheen) * uGloss;     // additive ONLY on the specular streak
-
-        // ---- alpha: thick rounded body stays rich; rims fade so layers overlap as glass ----
-        float a = (0.30 + 0.70 * round) * uAlpha;
-        a = clamp(a + spec * 0.5 * uGloss, 0.0, 1.0);        // shine lifts opacity a touch
-
-        // premultiply-ish: bright highlights punch through without washing to white
-        gl_FragColor = vec4(col, a);
+        // alpha: thick body stays rich; rims and very thin sections fade so layers overlap as glass
+        float a = (0.34 + 0.66 * round) * uAlpha;
+        a *= (0.42 + 0.58 * vThick);
+        gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
       }`;
 
     let ribbons = [];
@@ -184,9 +179,10 @@
             uFreqP:{value:0.85 + (i % 5) * 0.2}, uSpeedP:{value:0.5 + ((i * 37) % 10) / 10 * 0.7},
             uPhase:{value:i * 1.31}, uFreqS:{value:1.0}, uSpeedS:{value:0.6},
             uBaseY:{value:baseY}, uBend:{value:0}, uMouse:{value:new THREE.Vector2(0, 0)},
+            uTwFreq:{value:0.7 + (i % 4) * 0.22}, uTwSpd:{value:0.35 + ((i * 13) % 7) / 7 * 0.4},
             uColor:{value:new THREE.Color(COLORS[i % COLORS.length])},
-            uColor2:{value:new THREE.Color(COLORS[(i + 3) % COLORS.length])},
-            uAlpha:{value:0.78}, uGloss:{value:1}, uSeed:{value:i * 2.137}
+            uColor2:{value:new THREE.Color(COLORS[(i + 2) % COLORS.length])},
+            uAlpha:{value:0.82}, uGloss:{value:1}, uSeed:{value:i * 2.137}
           }
         });
         const mesh = new THREE.Mesh(geo, mat);
